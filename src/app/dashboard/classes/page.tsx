@@ -7,7 +7,6 @@ import { classService, Class } from '@/services/classService'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from 'react-hot-toast'
 
 export default function ClassesPage() {
@@ -54,8 +53,17 @@ export default function ClassesPage() {
         )}
       </div>
 
+      <div className="mb-6">
+        <Input
+          placeholder="Tìm kiếm lớp học..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-md"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {classes.map((classItem) => (
+        {filteredClasses.map((classItem) => (
           <Card key={classItem.id}>
             <CardHeader>
               <CardTitle>{classItem.name}</CardTitle>
