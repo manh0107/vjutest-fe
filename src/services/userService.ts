@@ -167,5 +167,32 @@ export const userService = {
       console.error('Lỗi khi xóa người dùng:', error.response || error)
       throw new Error(error.response?.data || 'Không thể xóa người dùng')
     }
+  },
+
+  async updateUserImage(userId: number, formData: FormData): Promise<User> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No token found');
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/users/update/${userId}/image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update user image');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating user image:', error);
+      throw error;
+    }
   }
 } 

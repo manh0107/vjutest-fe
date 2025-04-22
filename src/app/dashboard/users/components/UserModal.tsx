@@ -183,10 +183,14 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
       }
 
       await onSubmit(submissionData)
+      // Chỉ reset form và đóng modal khi thành công
       resetForm()
       onClose()
     } catch (err: any) {
-      setError(err.message || 'Có lỗi xảy ra khi lưu thông tin')
+      // Hiển thị lỗi từ server hoặc lỗi mặc định
+      const errorMessage = err.message || 'Có lỗi xảy ra khi lưu thông tin'
+      setError(errorMessage)
+      // Không đóng modal và giữ nguyên dữ liệu đã nhập
     } finally {
       setIsSubmitting(false)
     }

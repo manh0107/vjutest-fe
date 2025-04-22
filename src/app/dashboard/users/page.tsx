@@ -9,7 +9,7 @@ import { userService } from '@/services/userService'
 import { User } from '@/services/types'
 import { toast } from 'sonner'
 import { UserModal } from './components/UserModal'
-import { Pencil, Trash2, UserPlus, Search } from 'lucide-react'
+import { Pencil, Trash2, UserPlus, Search, Eye } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,15 +20,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { UserDetailModal } from './components/UserDetailModal'
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | undefined>()
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [modalTitle, setModalTitle] = useState('')
 
   useEffect(() => {
     fetchUsers()
@@ -52,9 +57,10 @@ export default function UserManagement() {
       await userService.createUser(userData)
       toast.success('Tạo người dùng thành công')
       fetchUsers()
-    } catch (error) {
+      return true
+    } catch (error: any) {
       console.error('Lỗi khi tạo người dùng:', error)
-      toast.error('Không thể tạo người dùng')
+      throw new Error(error.response?.data || error.message || 'Không thể tạo người dùng')
     }
   }
 
@@ -64,9 +70,10 @@ export default function UserManagement() {
       await userService.updateUser(selectedUser.id, userData)
       toast.success('Cập nhật người dùng thành công')
       fetchUsers()
-    } catch (error) {
+      return true
+    } catch (error: any) {
       console.error('Lỗi khi cập nhật người dùng:', error)
-      toast.error('Không thể cập nhật người dùng')
+      throw new Error(error.response?.data || error.message || 'Không thể cập nhật người dùng')
     }
   }
 
@@ -83,6 +90,11 @@ export default function UserManagement() {
       setIsDeleteDialogOpen(false)
       setUserToDelete(null)
     }
+  }
+
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user)
+    setIsDetailModalOpen(true)
   }
 
   const formatValue = (value: any) => {
@@ -149,6 +161,23 @@ export default function UserManagement() {
     (user.code?.toString().toLowerCase() || '').includes(searchTerm.toLowerCase())
   )
 
+  const handleModalSubmit = async (userData: Partial<User>) => {
+    try {
+      let success;
+      if (selectedUser) {
+        success = await handleUpdateUser(userData)
+      } else {
+        success = await handleCreateUser(userData)
+      }
+      if (success) {
+        setIsModalOpen(false)
+        setSelectedUser(null)
+      }
+    } catch (error) {
+      throw error
+    }
+  }
+
   if (loading) {
     return <div>Đang tải...</div>
   }
@@ -159,7 +188,8 @@ export default function UserManagement() {
         <div className="flex items-center justify-between">
           <CardTitle>Quản lý người dùng</CardTitle>
           <Button onClick={() => {
-            setSelectedUser(undefined)
+            setSelectedUser(null)
+            setModalTitle('Thêm người dùng mới')
             setIsModalOpen(true)
           }} className="bg-green-600 hover:bg-green-700">
             <UserPlus className="mr-2 h-4 w-4" />
@@ -196,7 +226,17 @@ export default function UserManagement() {
             </TableHeader>
             <TableBody>
               {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow 
+                  key={user.id}
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={(e) => {
+                    // Prevent row click if clicking on action buttons
+                    if ((e.target as HTMLElement).closest('.action-buttons')) {
+                      return;
+                    }
+                    handleViewUser(user);
+                  }}
+                >
                   <TableCell className="font-medium">{formatValue(user.id)}</TableCell>
                   <TableCell>
                     {user.image ? (
@@ -235,12 +275,13 @@ export default function UserManagement() {
                   </TableCell>
                   <TableCell className="text-right">
                     {!isAdmin(user) && (
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 action-buttons">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => {
                             setSelectedUser(user)
+                            setModalTitle('Chỉnh sửa thông tin người dùng')
                             setIsModalOpen(true)
                           }}
                         >
@@ -271,11 +312,11 @@ export default function UserManagement() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false)
-          setSelectedUser(undefined)
+          setSelectedUser(null)
         }}
-        onSubmit={selectedUser ? handleUpdateUser : handleCreateUser}
-        user={selectedUser}
-        title={selectedUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}
+        onSubmit={handleModalSubmit}
+        user={selectedUser || undefined}
+        title={modalTitle}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -294,6 +335,14 @@ export default function UserManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedUser && (
+        <UserDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          user={selectedUser}
+        />
+      )}
     </Card>
   )
 } 
