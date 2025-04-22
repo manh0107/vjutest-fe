@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { User as UserType } from './types'
+import { jwtDecode } from 'jwt-decode'
 
 const API_URL = 'http://localhost:8080'
 const REFRESH_INTERVAL = 4.5 * 60 * 1000 // 4 phút 30 giây
@@ -38,35 +39,25 @@ const updateAxiosHeaders = (token: string) => {
   axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 }
 
-// Function to check if token is expired or about to expire (within 5 minutes)
-const isTokenExpired = (token: string): boolean => {
-  try {
-    const base64Url = token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-    const { exp } = JSON.parse(jsonPayload)
-    const now = Math.floor(Date.now() / 1000)
-    return exp - now < 300 // Token is considered expired if it will expire in less than 5 minutes
-  } catch (error) {
-    return true // If we can't parse the token, consider it expired
-  }
+interface TokenResponse {
+  accessToken: string
+  refreshToken: string
+}
+
+interface JwtPayload {
+  exp: number
 }
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, credentials)
+      const response = await axios.post(`${API_URL}/auth/login`, credentials, {
+        withCredentials: true
+      })
       const { token } = response.data
       if (token) {
-        this.setToken(token)
-        // Cập nhật header Authorization
+        localStorage.setItem('token', token)
         updateAxiosHeaders(token)
-        // Bắt đầu interval refresh token sau khi đăng nhập thành công
         this.startRefreshInterval()
       }
       return response.data
@@ -82,12 +73,16 @@ export const authService = {
 
   async getCurrentUser(): Promise<User> {
     try {
-      const token = this.getToken()
+      const token = localStorage.getItem('token')
       if (!token) {
         throw new Error('Không tìm thấy token')
       }
 
-      const response = await axios.get(`${API_URL}/auth/me`)
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
       return response.data
     } catch (error: any) {
       console.error('Lỗi lấy thông tin người dùng:', error)
@@ -101,15 +96,14 @@ export const authService = {
 
   setToken(token: string): void {
     localStorage.setItem('token', token)
-    // Cập nhật header Authorization mỗi khi token thay đổi
     updateAxiosHeaders(token)
   },
 
   logout(): void {
     localStorage.removeItem('token')
-    // Xóa header Authorization khi đăng xuất
+    axios.post('/auth/logout', null, { withCredentials: true })
+      .catch(error => console.error('Lỗi khi logout:', error))
     delete axios.defaults.headers.common['Authorization']
-    // Dừng interval refresh token khi đăng xuất
     this.stopRefreshInterval()
   },
 
@@ -120,17 +114,26 @@ export const authService = {
 
   async refreshToken(): Promise<string> {
     try {
-      const response = await axios.post(`${API_URL}/auth/refresh-token`, {})
-      const { token } = response.data
-      if (token) {
-        this.setToken(token) // Cập nhật token mới và header
-        return token
+      const response = await axios.post<LoginResponse>('/auth/refresh-token', null, {
+        withCredentials: true
+      })
+
+      if (response.data.token) {
+        this.setToken(response.data.token)
+        return response.data.token
       }
-      throw new Error('Không thể làm mới token')
+
+      throw new Error('Không nhận được token mới')
     } catch (error: any) {
       console.error('Lỗi làm mới token:', error)
-      this.logout()
-      throw new Error(error.response?.data?.message || 'Phiên đăng nhập đã hết hạn')
+      if (error.response?.status === 403) {
+        const errorMessage = error.response?.data?.message
+        if (errorMessage && errorMessage.includes('expired')) {
+          this.logout()
+          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+        }
+      }
+      throw error
     }
   },
 
@@ -159,16 +162,31 @@ export const authService = {
   },
 
   async getValidToken(): Promise<string> {
-    const token = this.getToken()
-    if (!token) {
-      throw new Error('Không tìm thấy token')
-    }
+    try {
+      const token = this.getToken()
+      if (!token) {
+        throw new Error('Không tìm thấy token')
+      }
 
-    if (isTokenExpired(token)) {
-      console.log('Token sắp hết hạn, đang làm mới...')
-      return await this.refreshToken()
-    }
+      if (this.isTokenExpired(token)) {
+        return await this.refreshToken()
+      }
 
-    return token
+      return token
+    } catch (error: any) {
+      console.error('Lỗi khi lấy token:', error)
+      throw error
+    }
+  },
+
+  isTokenExpired(token: string): boolean {
+    try {
+      const decoded = jwtDecode<JwtPayload>(token)
+      const currentTime = Date.now() / 1000
+      // Token được coi là hết hạn nếu còn ít hơn 1 phút
+      return decoded.exp - currentTime < 60
+    } catch (error) {
+      return true
+    }
   }
 } 

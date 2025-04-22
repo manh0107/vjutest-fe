@@ -8,7 +8,7 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import { useForm } from '@/hooks/useForm'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 interface Props {
   params: {

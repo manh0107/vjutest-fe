@@ -1,8 +1,13 @@
+"use client"
+
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { format } from 'date-fns'
+import { vi } from 'date-fns/locale'
+import { toast } from 'sonner'
 
 interface Result {
   id: number
@@ -20,23 +25,25 @@ export default function ResultView() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
-  useEffect(() => {
-    fetchResults()
-  }, [])
-
   const fetchResults = async () => {
     try {
+      setLoading(true)
       const response = await fetch('/api/results')
       if (response.ok) {
         const data = await response.json()
         setResults(data)
       }
     } catch (error) {
-      console.error('Error fetching results:', error)
+      console.error('Lỗi khi lấy danh sách kết quả:', error)
+      toast.error('Không thể lấy danh sách kết quả')
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchResults()
+  }, [])
 
   const filteredResults = results.filter(result =>
     result.examTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,7 +51,7 @@ export default function ResultView() {
   )
 
   if (loading) {
-    return <div>Loading...</div>
+    return <div>Đang tải...</div>
   }
 
   return (
@@ -81,7 +88,9 @@ export default function ResultView() {
                 <TableCell>{result.username}</TableCell>
                 <TableCell>{result.score}</TableCell>
                 <TableCell>{result.totalQuestions}</TableCell>
-                <TableCell>{new Date(result.submittedAt).toLocaleString()}</TableCell>
+                <TableCell>
+                  {format(new Date(result.submittedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                </TableCell>
                 <TableCell>
                   <Button variant="outline" size="sm">
                     View Details

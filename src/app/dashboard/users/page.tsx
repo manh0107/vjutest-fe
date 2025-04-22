@@ -23,6 +23,15 @@ import {
 import { UserDetailModal } from './components/UserDetailModal'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
@@ -34,6 +43,10 @@ export default function UserManagement() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [modalTitle, setModalTitle] = useState('')
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
 
   useEffect(() => {
     fetchUsers()
@@ -55,12 +68,14 @@ export default function UserManagement() {
   const handleCreateUser = async (userData: Partial<User>) => {
     try {
       await userService.createUser(userData)
-      toast.success('Tạo người dùng thành công')
+      toast.success('Tạo người dùng thành công', {
+        description: `Đã tạo người dùng ${userData.name} với email ${userData.email}`
+      })
       fetchUsers()
       return true
     } catch (error: any) {
       console.error('Lỗi khi tạo người dùng:', error)
-      throw new Error(error.response?.data || error.message || 'Không thể tạo người dùng')
+      throw new Error(error.response?.data?.message || error.message || 'Không thể tạo người dùng')
     }
   }
 
@@ -68,12 +83,14 @@ export default function UserManagement() {
     if (!selectedUser?.id) return
     try {
       await userService.updateUser(selectedUser.id, userData)
-      toast.success('Cập nhật người dùng thành công')
+      toast.success('Cập nhật người dùng thành công', {
+        description: `Đã cập nhật thông tin cho người dùng ${userData.name}`
+      })
       fetchUsers()
       return true
     } catch (error: any) {
       console.error('Lỗi khi cập nhật người dùng:', error)
-      throw new Error(error.response?.data || error.message || 'Không thể cập nhật người dùng')
+      throw new Error(error.response?.data?.message || error.message || 'Không thể cập nhật người dùng')
     }
   }
 
@@ -81,11 +98,15 @@ export default function UserManagement() {
     if (!userToDelete?.id) return
     try {
       await userService.deleteUser(userToDelete.id)
-      toast.success('Xóa người dùng thành công')
+      toast.success('Xóa người dùng thành công', {
+        description: `Đã xóa người dùng ${userToDelete.name}`
+      })
       fetchUsers()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi xóa người dùng:', error)
-      toast.error('Không thể xóa người dùng')
+      toast.error('Không thể xóa người dùng', {
+        description: error.response?.data?.message || error.message
+      })
     } finally {
       setIsDeleteDialogOpen(false)
       setUserToDelete(null)
@@ -98,12 +119,8 @@ export default function UserManagement() {
   }
 
   const formatValue = (value: any) => {
-    // Debug log
-    console.log('Formatting value:', value, 'Type:', typeof value);
-    
     if (value === null || value === undefined || value === 'N/A' || value === '') return '-'
     
-    // Xử lý hiển thị giới tính
     if (typeof value === 'string') {
       const genderMap: Record<string, string> = {
         'MALE': 'Nam',
@@ -138,9 +155,6 @@ export default function UserManagement() {
   }
 
   const isAdmin = (user: User) => {
-    // Log để debug
-    console.log('Checking role for user:', user.name, 'Role:', user.role);
-    
     const role = user.role;
     if (typeof role === 'string') {
       return role === 'ROLE_ADMIN' || role === 'admin';
@@ -160,6 +174,16 @@ export default function UserManagement() {
     (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     (user.code?.toString().toLowerCase() || '').includes(searchTerm.toLowerCase())
   )
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
 
   const handleModalSubmit = async (userData: Partial<User>) => {
     try {
@@ -199,7 +223,7 @@ export default function UserManagement() {
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Tìm kiếm người dùng..."
+            placeholder="Tìm kiếm theo tên, email hoặc mã số..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
@@ -211,101 +235,141 @@ export default function UserManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[50px]">ID</TableHead>
-                <TableHead>Ảnh</TableHead>
-                <TableHead>Tên</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead className="w-[100px]">ID</TableHead>
                 <TableHead>Mã số</TableHead>
-                <TableHead>Lớp</TableHead>
-                <TableHead>Giới tính</TableHead>
-                <TableHead>Số điện thoại</TableHead>
+                <TableHead>Họ tên</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Vai trò</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow 
+              {currentItems.map((user) => (
+                <TableRow
                   key={user.id}
                   className="cursor-pointer hover:bg-gray-50"
                   onClick={(e) => {
-                    // Prevent row click if clicking on action buttons
-                    if ((e.target as HTMLElement).closest('.action-buttons')) {
+                    // Prevent row click when clicking action buttons
+                    if ((e.target as HTMLElement).closest('button')) {
                       return;
                     }
                     handleViewUser(user);
                   }}
                 >
-                  <TableCell className="font-medium">{formatValue(user.id)}</TableCell>
+                  <TableCell className="font-medium">{user.id}</TableCell>
                   <TableCell>
-                    {user.image ? (
-                      <img
-                        src={user.image}
-                        alt={`Ảnh đại diện của ${user.name}`}
-                        className="h-10 w-10 rounded-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=random`;
-                        }}
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-500 text-sm">
-                          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                        </span>
-                      </div>
-                    )}
+                    {user.code !== null && user.code !== undefined ? user.code : '-'}
                   </TableCell>
-                  <TableCell>{formatValue(user.name)}</TableCell>
-                  <TableCell>{formatValue(user.email)}</TableCell>
-                  <TableCell>{formatValue(user.code)}</TableCell>
-                  <TableCell>{formatValue(user.className)}</TableCell>
-                  <TableCell>{formatValue(user.gender)}</TableCell>
-                  <TableCell>{formatValue(user.phoneNumber)}</TableCell>
-                  <TableCell className="font-medium">{getRoleName(user.role)}</TableCell>
+                  <TableCell className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.image || ''} />
+                      <AvatarFallback>{user.name?.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    {user.name}
+                  </TableCell>
+                  <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      user.isEnabled 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
-                    }`}>
+                    <Badge variant={isAdmin(user) ? "destructive" : "default"}>
+                      {getRoleName(user.role)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      className={user.isEnabled ? "bg-green-500 hover:bg-green-600 text-white" : ""}
+                      variant={user.isEnabled ? "default" : "secondary"}
+                    >
                       {user.isEnabled ? 'Hoạt động' : 'Vô hiệu'}
-                    </span>
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {!isAdmin(user) && (
-                      <div className="flex justify-end gap-2 action-buttons">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedUser(user)
-                            setModalTitle('Chỉnh sửa thông tin người dùng')
-                            setIsModalOpen(true)
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:text-red-700"
-                          onClick={() => {
-                            setUserToDelete(user)
-                            setIsDeleteDialogOpen(true)
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex justify-end gap-2">
+                      {canModifyUser(user) && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedUser(user);
+                              setModalTitle('Cập nhật người dùng');
+                              setIsModalOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setUserToDelete(user);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-4">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  />
+                </PaginationItem>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          isActive={currentPage === page}
+                          onClick={() => handlePageChange(page)}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === currentPage - 2 ||
+                    page === currentPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </CardContent>
 
       <UserModal
@@ -319,6 +383,15 @@ export default function UserManagement() {
         title={modalTitle}
       />
 
+      <UserDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false)
+          setSelectedUser(null)
+        }}
+        user={selectedUser}
+      />
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -329,20 +402,12 @@ export default function UserManagement() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-500 hover:bg-red-700">
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-500 hover:bg-red-600">
               Xóa
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {selectedUser && (
-        <UserDetailModal
-          isOpen={isDetailModalOpen}
-          onClose={() => setIsDetailModalOpen(false)}
-          user={selectedUser}
-        />
-      )}
     </Card>
   )
 } 

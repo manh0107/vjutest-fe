@@ -7,7 +7,7 @@ import { classService, Class } from '@/services/classService'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from "@/components/ui/input"
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 
 export default function ClassesPage() {
   const { user } = useAuth()
