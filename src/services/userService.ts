@@ -104,7 +104,8 @@ export const userService = {
         role: {
           id: roleId
         },
-        isEnabled: data.isEnabled
+        isEnabled: data.isEnabled,
+        image: data.image || "https://static.vecteezy.com/system/resources/thumbnails/020/765/399/small/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg"
       }
 
       console.log('Creating user with data:', userData);

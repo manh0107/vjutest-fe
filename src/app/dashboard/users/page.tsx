@@ -182,6 +182,7 @@ export default function UserManagement() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[50px]">ID</TableHead>
+                <TableHead>Ảnh</TableHead>
                 <TableHead>Tên</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Mã số</TableHead>
@@ -197,6 +198,25 @@ export default function UserManagement() {
               {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{formatValue(user.id)}</TableCell>
+                  <TableCell>
+                    {user.image ? (
+                      <img
+                        src={user.image}
+                        alt={`Ảnh đại diện của ${user.name}`}
+                        className="h-10 w-10 rounded-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=random`;
+                        }}
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-500 text-sm">
+                          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                        </span>
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>{formatValue(user.name)}</TableCell>
                   <TableCell>{formatValue(user.email)}</TableCell>
                   <TableCell>{formatValue(user.code)}</TableCell>
