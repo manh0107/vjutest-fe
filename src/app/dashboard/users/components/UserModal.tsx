@@ -61,7 +61,7 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
     name: '',
     email: '',
     code: '',
-    phoneNumber: '',
+    phoneNumber: '' as any,
     role: 'ROLE_USER',
     isEnabled: true,
     password: '',
@@ -80,7 +80,7 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
       name: '',
       email: '',
       code: '',
-      phoneNumber: '',
+      phoneNumber: '' as any,
       role: 'ROLE_USER',
       isEnabled: true,
       password: '',
@@ -99,7 +99,7 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
         name: user.name || '',
         email: user.email || '',
         code: user.code || '',
-        phoneNumber: user.phoneNumber || '',
+        phoneNumber: user.phoneNumber?.toString() || '',
         role: typeof user.role === 'string' ? user.role : user.role?.name || 'ROLE_USER',
         isEnabled: user.isEnabled ?? true,
         password: '',
@@ -175,11 +175,7 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
         ...formData,
         className: formData.className?.toString().trim() || undefined,
         gender: formData.gender || undefined,
-        phoneNumber: formData.phoneNumber 
-          ? (typeof formData.phoneNumber === 'string' 
-              ? formData.phoneNumber.trim() 
-              : formData.phoneNumber.toString())
-          : undefined
+        phoneNumber: formData.phoneNumber ? parseInt(formData.phoneNumber.toString()) : undefined
       }
 
       await onSubmit(submissionData)

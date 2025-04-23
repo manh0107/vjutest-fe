@@ -194,10 +194,11 @@ export function CreateClassModal({ isOpen, onClose, onSuccess }: CreateClassModa
               value={formData.description}
               onChange={handleChange}
               placeholder="Nhập mô tả lớp học"
-              className={errors.description ? 'border-red-500' : ''}
+              rows={4}
+              className={`w-full ${formData.description.length > 500 ? 'border-red-500' : ''}`}
             />
-            {errors.description && (
-              <p className="text-sm text-red-500">{errors.description}</p>
+            {formData.description.length > 500 && (
+              <p className="text-sm text-red-500">Mô tả không được vượt quá 500 ký tự</p>
             )}
             <p className="text-sm text-muted-foreground">
               {formData.description.length}/500 ký tự

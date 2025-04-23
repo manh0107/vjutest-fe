@@ -121,11 +121,15 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
 
+  const [formData, setFormData] = useState<Partial<User>>({
+    // ... existing code ...
+  })
+
   const [imageUrl, setImageUrl] = useState<string>('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
-  const isTeacher = user?.role === 'ROLE_TEACHER' || user?.role === 'teacher'
+  const isTeacherOrAdmin = user?.role === 'ROLE_TEACHER' || user?.role === 'teacher' || user?.role === 'ROLE_ADMIN' || user?.role === 'admin'
 
   // Check if content needs scrolling
   const needsScroll = createdClasses.length > itemsPerPage || 
@@ -259,9 +263,9 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
           <Separator className="my-6 md:my-8" />
 
           <div className="flex-1">
-            <Tabs defaultValue={isTeacher ? "classes" : "enrolled"} className="w-full" onValueChange={handleTabChange}>
+            <Tabs defaultValue={isTeacherOrAdmin ? "classes" : "enrolled"} className="w-full" onValueChange={handleTabChange}>
               <TabsList className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
-                {isTeacher ? (
+                {isTeacherOrAdmin ? (
                   <>
                     <TabsTrigger value="classes">Lớp học</TabsTrigger>
                     <TabsTrigger value="exams">Bài kiểm tra</TabsTrigger>
@@ -276,7 +280,7 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                 )}
               </TabsList>
 
-              {isTeacher ? (
+              {isTeacherOrAdmin ? (
                 <>
                   <TabsContent value="classes">
                     <div className="space-y-6">

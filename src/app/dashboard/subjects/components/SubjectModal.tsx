@@ -149,12 +149,21 @@ export function SubjectModal({ isOpen, onClose, onSubmit, subject, isLoading }: 
               {formData.description.length}/500 ký tự
             </p>
           </div>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex justify-end gap-4 mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Hủy
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Đang lưu...' : subject ? 'Cập nhật' : 'Tạo mới'}
+            <Button
+              type="submit"
+              className="bg-green-600 hover:bg-green-700"
+              disabled={isLoading || formData.description.length > 500}
+            >
+              {isLoading ? 'Đang lưu...' : 'Lưu'}
             </Button>
           </div>
         </form>

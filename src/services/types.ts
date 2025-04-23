@@ -5,14 +5,13 @@ export interface User {
   name: string
   email: string
   password?: string
-  role: string
-  image?: string
-  code?: string
-  phoneNumber?: number
+  code: string
+  phoneNumber: string | number
   className?: string
   gender?: string
+  role: string | { id: number, name: string }
   isEnabled: boolean
-  createdAt: string
+  image?: string
 }
 
 export interface Class {
