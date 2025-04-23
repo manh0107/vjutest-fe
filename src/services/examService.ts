@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_URL = 'http://localhost:8080/api'
+const API_URL = 'http://localhost:8080'
 
 export interface Question {
   id: number
@@ -12,31 +12,41 @@ export interface Question {
 
 export interface Exam {
   id: number
-  title: string
+  name: string
+  examCode: string
   description: string
-  duration: number
-  classId: number
+  durationTime: number
+  passScore: number
+  isPublic: boolean
+  status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
+  startAt: string | null
+  endAt: string | null
+  subject: {
+    id: number
+    name: string
+    code: string
+  }
+  totalQuestions: number
   createdAt: string
-  updatedAt: string
-  questions: Question[]
+  createdBy: {
+    id: number
+    name: string
+  }
 }
 
 export interface CreateExamData {
-  title: string
+  name: string
+  examCode?: string
   description: string
-  duration: number
-  classId: number
-  questions: Array<{
-    content: string
-    options: string[]
-    correctAnswer: number
-  }>
+  durationTime: number
+  passScore: number
+  isPublic: boolean
 }
 
-export interface UpdateExamData {
-  title?: string
-  description?: string
-  duration?: number
+export interface UpdateExamData extends CreateExamData {
+  status?: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
+  startAt?: string
+  endAt?: string
 }
 
 export interface ExamSubmission {
@@ -56,6 +66,118 @@ export interface ExamResult {
 }
 
 export const examService = {
+  // Lấy danh sách bài kiểm tra công khai theo môn học
+  async getPublicExams(subjectId: number): Promise<Exam[]> {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Không tìm thấy token')
+      }
+
+      const response = await axios.get(`${API_URL}/exams/public-exams/${subjectId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error: any) {
+      console.error('Lỗi khi lấy danh sách bài kiểm tra:', error.response || error)
+      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách bài kiểm tra')
+    }
+  },
+
+  // Lấy danh sách bài kiểm tra trong lớp học
+  async getClassExams(classId: number, subjectId: number, userId: number): Promise<Exam[]> {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Không tìm thấy token')
+      }
+
+      const response = await axios.get(`${API_URL}/exams/class/${classId}/subject/${subjectId}/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error: any) {
+      console.error('Lỗi khi lấy danh sách bài kiểm tra:', error.response || error)
+      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách bài kiểm tra')
+    }
+  },
+
+  // Tạo bài kiểm tra công khai
+  async createPublicExam(subjectId: number, userId: number, examData: CreateExamData): Promise<Exam> {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Không tìm thấy token')
+      }
+
+      const response = await axios.post(
+        `${API_URL}/exams/create/subject/${subjectId}/user/${userId}`,
+        examData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+      return response.data
+    } catch (error: any) {
+      console.error('Lỗi khi tạo bài kiểm tra:', error)
+      throw new Error(error.response?.data?.message || 'Không thể tạo bài kiểm tra')
+    }
+  },
+
+  // Tạo bài kiểm tra trong lớp học
+  async createClassExam(classId: number, subjectId: number, userId: number, examData: CreateExamData): Promise<Exam> {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Không tìm thấy token')
+      }
+
+      const response = await axios.post(
+        `${API_URL}/exams/create/class/${classId}/subject/${subjectId}/user/${userId}`,
+        examData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+      return response.data
+    } catch (error: any) {
+      console.error('Lỗi khi tạo bài kiểm tra:', error)
+      throw new Error(error.response?.data?.message || 'Không thể tạo bài kiểm tra')
+    }
+  },
+
+  // Lấy chi tiết bài kiểm tra
+  async getExamById(examId: number, userId: number): Promise<Exam> {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Không tìm thấy token')
+      }
+
+      const response = await axios.get(`${API_URL}/exams/${examId}/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      return response.data
+    } catch (error: any) {
+      console.error('Lỗi khi lấy thông tin bài kiểm tra:', error)
+      throw new Error(error.response?.data?.message || 'Không thể lấy thông tin bài kiểm tra')
+    }
+  },
+
   async getExams(classId: number): Promise<Exam[]> {
     const response = await axios.get(`${API_URL}/classes/${classId}/exams`, {
       headers: {

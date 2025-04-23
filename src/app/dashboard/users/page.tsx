@@ -32,6 +32,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { useRouter } from 'next/navigation'
 
 interface Role {
   name: string;
@@ -51,6 +52,8 @@ export default function UserManagement() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+
+  const router = useRouter()
 
   useEffect(() => {
     fetchUsers()
@@ -73,9 +76,9 @@ export default function UserManagement() {
     try {
       await userService.createUser(userData)
       toast.success('Tạo người dùng thành công', {
-        description: `Đã tạo người dùng ${userData.name} với email ${userData.email}`
+        description: `Đã tạo người dùng ${userData.name}. Vui lòng đăng nhập để tiếp tục.`
       })
-      fetchUsers()
+      router.push('/login')
       return true
     } catch (error: any) {
       console.error('Lỗi khi tạo người dùng:', error)

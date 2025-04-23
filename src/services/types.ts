@@ -4,12 +4,13 @@ export interface User {
   id: number
   name: string
   email: string
-  password?: string
   code: string
   phoneNumber: string | number
   className?: string
   gender?: string
   role: string | { id: number, name: string }
+  password?: string
+  createdAt?: string
   isEnabled: boolean
   image?: string
 }
