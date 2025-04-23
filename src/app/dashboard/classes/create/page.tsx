@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 import { classService } from '@/services/classService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,16 +11,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import axios from 'axios'
 
 export default function CreateClassPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([])
   const [formData, setFormData] = useState({
     name: '',
     classCode: '',
     description: '',
-    subjectId: 0,
+    subjectId: ''
   })
 
   useEffect(() => {
@@ -42,16 +45,24 @@ export default function CreateClassPage() {
     setLoading(true)
 
     try {
-      await classService.createClass({
-        name: formData.name,
-        classCode: formData.classCode,
-        description: formData.description,
-        subjectId: formData.subjectId,
-      })
-      toast.success('Tạo lớp học thành công')
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Vui lòng đăng nhập lại')
+      }
+
+      const response = await axios.post(
+        `http://localhost:8080/classes/create?userId=${user?.id}`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      )
+
       router.push('/dashboard/classes')
     } catch (error) {
-      console.error('Lỗi tạo lớp học:', error)
+      console.error('Error creating class:', error)
       toast.error('Không thể tạo lớp học')
     } finally {
       setLoading(false)
@@ -69,7 +80,7 @@ export default function CreateClassPage() {
   const handleSubjectChange = (value: string) => {
     setFormData(prev => ({
       ...prev,
-      subjectId: parseInt(value)
+      subjectId: value
     }))
   }
 

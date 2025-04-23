@@ -33,6 +33,10 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 
+interface Role {
+  name: string;
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,7 +159,7 @@ export default function UserManagement() {
   }
 
   const isAdmin = (user: User) => {
-    const role = user.role;
+    const role = user.role as string | Role;
     if (typeof role === 'string') {
       return role === 'ROLE_ADMIN' || role === 'admin';
     }

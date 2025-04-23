@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import axios from 'axios'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -56,32 +57,20 @@ export default function LoginPage() {
     
     setIsLoading(true)
     try {
-      console.log('Sending login request with:', { email, password })
-      const response = await fetch('http://localhost:8080/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
+      const response = await axios.post('http://localhost:8080/auth/login', {
+        email,
+        password
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Đăng nhập thất bại')
+      if (response.status === 200 && response.data.token) {
+        const token = response.data.token
+        await login(token)
+        router.push('/dashboard')
+      } else {
+        throw new Error('Đăng nhập thất bại')
       }
-
-      const data = await response.json()
-      console.log('Login response:', data)
-
-      if (!data.token) {
-        throw new Error('Không nhận được token từ server')
-      }
-
-      login(data.token)
-      toast.success('Đăng nhập thành công!')
     } catch (error: any) {
-      console.error('Login error:', error)
+      console.error('Login error:', error.message)
       toast.error(error.message || 'Đăng nhập thất bại')
     } finally {
       setIsLoading(false)

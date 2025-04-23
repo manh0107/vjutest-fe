@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { classService, Class } from '@/services/classService'
+import { classService, Class, UpdateClassData } from '@/services/classService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +28,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ClassDetailModal } from './components/ClassDetailModal'
+import { CreateClassModal } from './components/CreateClassModal'
+import { ClassModal } from './components/ClassModal'
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([])
@@ -38,6 +40,9 @@ export default function ClassesPage() {
   const [classToDelete, setClassToDelete] = useState<Class | null>(null)
   const [selectedClass, setSelectedClass] = useState<Class | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     fetchClasses()
@@ -50,9 +55,7 @@ export default function ClassesPage() {
       const data = await classService.getClasses()
       setClasses(data)
     } catch (error) {
-      console.error('Error fetching classes:', error)
       setError('Không thể tải danh sách lớp học. Vui lòng kiểm tra kết nối hoặc thử lại sau.')
-      toast.error('Không thể tải danh sách lớp học')
     } finally {
       setLoading(false)
     }
@@ -85,6 +88,28 @@ export default function ClassesPage() {
     setIsDetailModalOpen(true)
   }
 
+  const handleCreateSuccess = () => {
+    fetchClasses()
+  }
+
+  const handleEdit = (classItem: Class) => {
+    setSelectedClass(classItem)
+    setIsEditModalOpen(true)
+  }
+
+  const handleUpdateClass = async (data: UpdateClassData) => {
+    setIsLoading(true)
+    try {
+      if (!selectedClass) return
+      await classService.updateClass(selectedClass.id, data)
+      fetchClasses()
+    } catch (error) {
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const filteredClasses = classes.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.classCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -107,12 +132,10 @@ export default function ClassesPage() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Quản lý lớp học</CardTitle>
-          <Link href="/dashboard/classes/create">
-            <Button className="bg-green-600 hover:bg-green-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Thêm lớp học
-            </Button>
-          </Link>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="bg-green-600 hover:bg-green-700">
+            <Plus className="h-4 w-4 mr-2" />
+            Tạo lớp học mới
+          </Button>
         </div>
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -152,9 +175,7 @@ export default function ClassesPage() {
                   >
                     <TableCell className="font-medium">{c.id}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-normal">
-                        {c.classCode}
-                      </Badge>
+                      {c.classCode}
                     </TableCell>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{c.createdByName || '-'}</TableCell>
@@ -163,22 +184,20 @@ export default function ClassesPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 mr-1 hover:bg-muted"
-                        asChild
                         onClick={(e) => {
-                          e.stopPropagation()
+                          e.stopPropagation();
+                          handleEdit(c);
                         }}
                       >
-                        <Link href={`/dashboard/classes/${c.id}/edit`}>
-                          <Pencil className="h-4 w-4" />
-                        </Link>
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 hover:bg-muted text-destructive hover:text-destructive"
                         onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteClick(c)
+                          e.stopPropagation();
+                          handleDeleteClick(c);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -220,6 +239,23 @@ export default function ClassesPage() {
           setSelectedClass(null)
         }}
         classData={selectedClass}
+      />
+
+      <CreateClassModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleCreateSuccess}
+      />
+
+      <ClassModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setSelectedClass(null)
+        }}
+        onSubmit={handleUpdateClass}
+        classData={selectedClass}
+        isLoading={isLoading}
       />
     </Card>
   )

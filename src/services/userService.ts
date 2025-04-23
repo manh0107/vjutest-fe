@@ -7,24 +7,14 @@ export const userService = {
   async getUsers(): Promise<User[]> {
     try {
       const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.get(`${API_URL}/users/all`, {
+      const response = await axios.get('http://localhost:8080/users/all', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
-
-      console.log('Users response:', response.data)
       return response.data
-    } catch (error: any) {
-      console.error('Lỗi khi lấy danh sách người dùng:', error.response || error)
-      if (error.response?.status === 403) {
-        throw new Error('Bạn không có quyền truy cập danh sách người dùng')
-      }
-      throw new Error(error.response?.data || 'Không thể tải danh sách người dùng')
+    } catch (error) {
+      throw error
     }
   },
 

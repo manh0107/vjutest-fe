@@ -1,18 +1,18 @@
 export type Role = 'ROLE_ADMIN' | 'ROLE_USER' | 'ROLE_TEACHER' | { name: string }
 
 export interface User {
-  id?: number
-  name?: string
-  email?: string
-  code?: string | number
-  phoneNumber?: string | number
-  role?: Role | string
-  isEnabled?: boolean
+  id: number
+  name: string
+  email: string
   password?: string
-  className?: string | null
-  gender?: string | null
+  role: string
   image?: string
-  createdAt?: string
+  code?: string
+  phoneNumber?: number
+  className?: string
+  gender?: string
+  isEnabled: boolean
+  createdAt: string
 }
 
 export interface Class {

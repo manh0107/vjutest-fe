@@ -6,55 +6,50 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Subject, CreateSubjectData, UpdateSubjectData } from '@/services/subjectService'
+import { Class, UpdateClassData } from '@/services/classService'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
 
-interface SubjectModalProps {
+interface ClassModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: CreateSubjectData | UpdateSubjectData) => Promise<void>
-  subject: Subject | null
+  onSubmit: (data: UpdateClassData) => Promise<void>
+  classData: Class | null
   isLoading: boolean
 }
 
-export function SubjectModal({ isOpen, onClose, onSubmit, subject, isLoading }: SubjectModalProps) {
-  const [formData, setFormData] = useState<CreateSubjectData>({
+export function ClassModal({ isOpen, onClose, onSubmit, classData, isLoading }: ClassModalProps) {
+  const [formData, setFormData] = useState<UpdateClassData>({
     name: '',
-    subjectCode: '',
-    description: '',
-    creditHour: 3
+    classCode: '',
+    description: ''
   })
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (subject) {
+    if (classData) {
       setFormData({
-        name: subject.name,
-        subjectCode: subject.subjectCode,
-        description: subject.description,
-        creditHour: subject.creditHour
+        name: classData.name,
+        classCode: classData.classCode,
+        description: classData.description
       })
     } else {
       setFormData({
         name: '',
-        subjectCode: '',
-        description: '',
-        creditHour: 3
+        classCode: '',
+        description: ''
       })
     }
-    // Reset error when modal opens/closes
     setError(null)
-  }, [subject, isOpen])
+  }, [classData, isOpen])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'creditHour' ? parseInt(value) || 0 : value
+      [name]: value
     }))
-    // Clear error when user starts typing
     setError(null)
   }
 
@@ -64,13 +59,11 @@ export function SubjectModal({ isOpen, onClose, onSubmit, subject, isLoading }: 
     
     try {
       await onSubmit(formData)
-      toast.success(subject ? 'Cập nhật môn học thành công' : 'Tạo môn học thành công')
+      toast.success('Cập nhật lớp học thành công')
       onClose()
     } catch (error: any) {
-      console.error('Lỗi khi lưu môn học:', error)
-      // Hiển thị lỗi từ server hoặc lỗi mặc định
-      setError(error.response?.data?.message || error.message || 'Không thể lưu môn học')
-      // KHÔNG đóng modal khi có lỗi
+      console.error('Lỗi khi lưu lớp học:', error)
+      setError(error.response?.data?.message || error.message || 'Không thể lưu lớp học')
     }
   }
 
@@ -79,10 +72,10 @@ export function SubjectModal({ isOpen, onClose, onSubmit, subject, isLoading }: 
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
-            {subject ? 'Cập nhật môn học' : 'Tạo môn học mới'}
+            Cập nhật lớp học
           </DialogTitle>
           <DialogDescription>
-            {subject ? 'Chỉnh sửa thông tin môn học hiện tại.' : 'Thêm một môn học mới vào hệ thống.'}
+            Chỉnh sửa thông tin lớp học hiện tại.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,43 +86,29 @@ export function SubjectModal({ isOpen, onClose, onSubmit, subject, isLoading }: 
             </Alert>
           )}
           <div className="space-y-2">
-            <Label htmlFor="name">Tên môn học</Label>
+            <Label htmlFor="name">Tên lớp học</Label>
             <Input
               id="name"
               name="name"
               value={formData.name}
               onChange={handleChange}
               required
-              placeholder="Nhập tên môn học"
+              placeholder="Nhập tên lớp học"
               className="w-full"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="subjectCode">Mã môn học</Label>
+            <Label htmlFor="classCode">Mã lớp</Label>
             <Input
-              id="subjectCode"
-              name="subjectCode"
-              value={formData.subjectCode}
+              id="classCode"
+              name="classCode"
+              value={formData.classCode}
               onChange={handleChange}
               required
-              placeholder="Nhập mã môn học"
+              placeholder="Nhập mã lớp"
               className="w-full"
             />
-            <p className="text-sm text-muted-foreground">Mã môn học sẽ tự động thêm tiền tố "S-"</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="creditHour">Số tín chỉ</Label>
-            <Input
-              id="creditHour"
-              name="creditHour"
-              type="number"
-              min="1"
-              max="10"
-              value={formData.creditHour}
-              onChange={handleChange}
-              required
-              className="w-full"
-            />
+            <p className="text-sm text-muted-foreground">Mã lớp học sẽ tự động thêm tiền tố "C-"</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Mô tả</Label>
@@ -138,7 +117,7 @@ export function SubjectModal({ isOpen, onClose, onSubmit, subject, isLoading }: 
               name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="Nhập mô tả môn học"
+              placeholder="Nhập mô tả lớp học"
               rows={4}
               className={`w-full ${formData.description.length > 500 ? 'border-red-500' : ''}`}
             />
@@ -154,7 +133,7 @@ export function SubjectModal({ isOpen, onClose, onSubmit, subject, isLoading }: 
               Hủy
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Đang lưu...' : subject ? 'Cập nhật' : 'Tạo mới'}
+              {isLoading ? 'Đang lưu...' : 'Cập nhật'}
             </Button>
           </div>
         </form>

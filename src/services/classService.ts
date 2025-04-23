@@ -96,10 +96,9 @@ export interface CreateClassData {
 }
 
 export interface UpdateClassData {
-  name?: string
-  description?: string
-  classCode?: string
-  subjectId?: number
+  name: string
+  description: string
+  classCode: string
 }
 
 export interface JoinRequest {
@@ -120,12 +119,8 @@ export const classService = {
       if (!token) {
         throw new Error('Không tìm thấy token')
       }
-
-      // Log token để debug
-      console.log('Token:', token)
       
       try {
-        // Gọi API /auth/me để lấy userId
         const userResponse = await axios.get(`${API_URL}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -136,17 +131,7 @@ export const classService = {
         })
         
         const userId = userResponse.data.id
-        console.log('User ID from /auth/me:', userId)
         
-        // Log headers để debug
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-        console.log('Request headers:', headers)
-
-        // Gọi API /classes/all với cả token và userId
         const response = await axios.get(`${API_URL}/classes/all?userId=${userId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -156,24 +141,12 @@ export const classService = {
           withCredentials: true
         })
 
-        console.log('Classes response:', response.data)
         return response.data
-      } catch (parseError) {
-        console.error('Lỗi khi lấy thông tin người dùng:', parseError)
-        throw new Error('Không thể lấy thông tin người dùng')
+      } catch (error) {
+        return []
       }
-    } catch (error: any) {
-      console.error('Lỗi khi lấy danh sách lớp học:', error.response || error)
-      if (error.response?.status === 403) {
-        // Log thêm thông tin về lỗi 403
-        console.error('Chi tiết lỗi 403:', {
-          status: error.response.status,
-          headers: error.response.headers,
-          data: error.response.data
-        })
-        throw new Error('Bạn không có quyền truy cập danh sách lớp học. Vui lòng kiểm tra lại quyền của tài khoản.')
-      }
-      throw new Error(error.response?.data || 'Không thể tải danh sách lớp học')
+    } catch (error) {
+      return []
     }
   },
 
@@ -226,11 +199,24 @@ export const classService = {
         throw new Error('Không tìm thấy token')
       }
 
-      const response = await axios.put(`${API_URL}/classes/update/${id}`, data, {
+      const userResponse = await axios.get(`${API_URL}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        withCredentials: true
+      })
+      
+      const userId = userResponse.data.id
+
+      const response = await axios.put(`${API_URL}/classes/update/${id}?userId=${userId}`, data, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        withCredentials: true
       })
       return response.data
     } catch (error: any) {
@@ -246,13 +232,28 @@ export const classService = {
         throw new Error('Không tìm thấy token')
       }
 
-      await axios.delete(`${API_URL}/classes/delete/${id}`, {
+      const userResponse = await axios.get(`${API_URL}/auth/me`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        withCredentials: true
+      })
+      
+      const userId = userResponse.data.id
+
+      await axios.delete(`${API_URL}/classes/delete/${id}?userId=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       })
     } catch (error: any) {
       console.error('Lỗi khi xóa lớp học:', error.response || error)
+      if (error.response?.status === 403) {
+        throw new Error('Bạn không có quyền xóa lớp học này')
+      }
       throw new Error(error.response?.data || 'Không thể xóa lớp học')
     }
   },
@@ -397,8 +398,8 @@ export const classService = {
         }
       })
     } catch (error: any) {
-      console.error('Lỗi khi phê duyệt yêu cầu:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể phê duyệt yêu cầu')
+      console.error('Lỗi khi chấp nhận yêu cầu:', error.response || error)
+      throw new Error(error.response?.data || 'Không thể chấp nhận yêu cầu')
     }
   },
 
@@ -419,4 +420,4 @@ export const classService = {
       throw new Error(error.response?.data || 'Không thể từ chối yêu cầu')
     }
   },
-} 
+}

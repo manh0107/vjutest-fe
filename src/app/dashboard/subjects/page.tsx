@@ -182,20 +182,8 @@ export default function SubjectsPage() {
       header: "Số tín chỉ",
     },
     {
-      accessorKey: "description",
-      header: "Mô tả",
-    },
-    {
       accessorKey: "createdBy",
       header: "Người tạo",
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Ngày tạo",
-      cell: ({ row }) => {
-        const date = row.getValue("createdAt") as string;
-        return date ? format(new Date(date), "dd/MM/yyyy HH:mm", { locale: vi }) : "N/A";
-      },
     },
     {
       id: "actions",
@@ -265,27 +253,29 @@ export default function SubjectsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentItems.map((subject) => (
-                <TableRow 
-                  key={subject.id}
-                  className="cursor-pointer hover:bg-gray-50"
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest('button')) {
-                      return;
-                    }
-                    handleViewSubject(subject);
-                  }}
-                >
-                  <TableCell className="font-medium">{subject.id}</TableCell>
-                  <TableCell>{subject.subjectCode}</TableCell>
-                  <TableCell>{subject.name}</TableCell>
-                  <TableCell>{subject.creditHour}</TableCell>
-                  <TableCell>{subject.createdByName || 'N/A'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+              {currentItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    Không tìm thấy môn học nào
+                  </TableCell>
+                </TableRow>
+              ) : (
+                currentItems.map((subject) => (
+                  <TableRow 
+                    key={subject.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleViewSubject(subject)}
+                  >
+                    <TableCell className="font-medium">{subject.id}</TableCell>
+                    <TableCell>{subject.subjectCode}</TableCell>
+                    <TableCell>{subject.name}</TableCell>
+                    <TableCell>{subject.creditHour}</TableCell>
+                    <TableCell>{subject.createdByName || '-'}</TableCell>
+                    <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8 mr-1 hover:bg-muted"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEdit(subject);
@@ -296,18 +286,19 @@ export default function SubjectsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8 hover:bg-muted text-destructive hover:text-destructive"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSubjectToDelete(subject);
                           setIsDeleteDialogOpen(true);
                         }}
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
