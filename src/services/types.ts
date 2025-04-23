@@ -38,13 +38,26 @@ export interface Subject {
 
 export interface Exam {
   id: number
-  title: string
+  name: string
+  examCode: string
   description: string
-  duration: number
-  classId: number
+  durationTime: number
+  passScore: number
+  isPublic: boolean
+  status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
+  startAt: string | null
+  endAt: string | null
+  subject: {
+    id: number
+    name: string
+    code: string
+  }
+  totalQuestions: number
   createdAt: string
-  updatedAt: string
-  questions: Question[]
+  createdBy: {
+    id: number
+    name: string
+  }
 }
 
 export interface Question {

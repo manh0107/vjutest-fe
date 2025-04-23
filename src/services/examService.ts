@@ -2,6 +2,24 @@ import axios from 'axios'
 
 const API_URL = 'http://localhost:8080'
 
+// Cache for storing API responses
+const responseCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
+// Helper function to check cache
+const getFromCache = (key: string) => {
+  const cached = responseCache.get(key)
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data
+  }
+  return null
+}
+
+// Helper function to set cache
+const setCache = (key: string, data: any) => {
+  responseCache.set(key, { data, timestamp: Date.now() })
+}
+
 export interface Question {
   id: number
   content: string
@@ -68,6 +86,12 @@ export interface ExamResult {
 export const examService = {
   // Lấy danh sách bài kiểm tra công khai theo môn học
   async getPublicExams(subjectId: number): Promise<Exam[]> {
+    const cacheKey = `public-exams-${subjectId}`
+    const cachedData = getFromCache(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
     try {
       const token = localStorage.getItem('token')
       if (!token) {
@@ -80,15 +104,28 @@ export const examService = {
           'Content-Type': 'application/json'
         }
       })
+
+      setCache(cacheKey, response.data)
       return response.data
     } catch (error: any) {
-      console.error('Lỗi khi lấy danh sách bài kiểm tra:', error.response || error)
+      if (error.response?.status === 401) {
+        throw new Error('Phiên đăng nhập đã hết hạn')
+      }
+      if (error.response?.status === 403) {
+        throw new Error('Bạn không có quyền truy cập')
+      }
       throw new Error(error.response?.data?.message || 'Không thể lấy danh sách bài kiểm tra')
     }
   },
 
   // Lấy danh sách bài kiểm tra trong lớp học
   async getClassExams(classId: number, subjectId: number, userId: number): Promise<Exam[]> {
+    const cacheKey = `class-exams-${classId}-${subjectId}-${userId}`
+    const cachedData = getFromCache(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
     try {
       const token = localStorage.getItem('token')
       if (!token) {
@@ -101,9 +138,16 @@ export const examService = {
           'Content-Type': 'application/json'
         }
       })
+
+      setCache(cacheKey, response.data)
       return response.data
     } catch (error: any) {
-      console.error('Lỗi khi lấy danh sách bài kiểm tra:', error.response || error)
+      if (error.response?.status === 401) {
+        throw new Error('Phiên đăng nhập đã hết hạn')
+      }
+      if (error.response?.status === 403) {
+        throw new Error('Bạn không có quyền truy cập')
+      }
       throw new Error(error.response?.data?.message || 'Không thể lấy danh sách bài kiểm tra')
     }
   },

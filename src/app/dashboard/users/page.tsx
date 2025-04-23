@@ -74,11 +74,11 @@ export default function UserManagement() {
 
   const handleCreateUser = async (userData: Partial<User>) => {
     try {
-      await userService.createUser(userData)
+      const newUser = await userService.createUser(userData)
+      setUsers(prevUsers => [...prevUsers, newUser])
       toast.success('Tạo người dùng thành công', {
-        description: `Đã tạo người dùng ${userData.name}. Vui lòng đăng nhập để tiếp tục.`
+        description: `Đã tạo người dùng ${userData.name}`
       })
-      router.push('/login')
       return true
     } catch (error: any) {
       console.error('Lỗi khi tạo người dùng:', error)
@@ -89,11 +89,13 @@ export default function UserManagement() {
   const handleUpdateUser = async (userData: Partial<User>) => {
     if (!selectedUser?.id) return
     try {
-      await userService.updateUser(selectedUser.id, userData)
+      const updatedUser = await userService.updateUser(selectedUser.id, userData)
+      setUsers(prevUsers => prevUsers.map(user => 
+        user.id === updatedUser.id ? updatedUser : user
+      ))
       toast.success('Cập nhật người dùng thành công', {
         description: `Đã cập nhật thông tin cho người dùng ${userData.name}`
       })
-      fetchUsers()
       return true
     } catch (error: any) {
       console.error('Lỗi khi cập nhật người dùng:', error)

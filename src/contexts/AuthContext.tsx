@@ -3,20 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { authService } from '@/services/authService'
 import { useRouter } from 'next/navigation'
-
-interface User {
-  id: number
-  name: string
-  email: string
-  role: string
-  image?: string
-  code?: string
-  phoneNumber?: number
-  className?: string
-  gender?: string
-  isEnabled: boolean
-  createdAt: string
-}
+import { User } from '@/services/types'
 
 interface AuthContextType {
   user: User | null
