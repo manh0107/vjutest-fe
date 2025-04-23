@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, BookOpen, FileText, GraduationCap, BarChart } from "lucide-react"
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface DashboardStats {
   totalUsers: number

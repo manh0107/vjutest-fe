@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
 import { classService, Class } from '@/services/classService'
 import { examService, Exam } from '@/services/examService'
-import Card from '@/components/Card'
-import Button from '@/components/Button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
 import Link from 'next/link'
-import toast from 'react-hot-toast'
+import { Users, Clock, BookOpen, Plus, Loader2 } from 'lucide-react'
+import { format } from 'date-fns'
 
 interface Props {
   params: {
@@ -20,7 +22,6 @@ export default function ClassDetailPage({ params }: Props) {
   const [classData, setClassData] = useState<Class | null>(null)
   const [exams, setExams] = useState<Exam[]>([])
   const [loading, setLoading] = useState(true)
-  const { user } = useAuth()
   const router = useRouter()
   const classId = parseInt(params.id)
 
@@ -68,126 +69,140 @@ export default function ClassDetailPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="container mx-auto py-6 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Đang tải thông tin lớp học...</span>
       </div>
     )
   }
 
   if (!classData) {
     return (
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="text-center">
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <h3 className="text-lg font-semibold mb-2">
               Không tìm thấy lớp học
             </h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-muted-foreground mb-4">
               Lớp học này không tồn tại hoặc bạn không có quyền truy cập.
             </p>
-            <div className="mt-6">
-              <Button onClick={() => router.push('/dashboard/classes')}>
-                Quay lại danh sách lớp học
-              </Button>
-            </div>
-          </div>
-        </div>
+            <Button onClick={() => router.push('/dashboard/classes')}>
+              Quay lại danh sách lớp học
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  const isTeacher = user?.role === 'TEACHER'
-
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <div className="px-4 py-6 sm:px-0">
-        <div className="mb-8">
-          <Card>
-            <Card.Header>
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {classData.name}
-                </h2>
-                {!isTeacher && (
-                  <Button
-                    variant="outline"
-                    onClick={handleLeaveClass}
-                  >
-                    Rời khỏi lớp
-                  </Button>
-                )}
-              </div>
-            </Card.Header>
-            <Card.Body>
-              <p className="text-gray-600">{classData.description}</p>
-            </Card.Body>
-          </Card>
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Chi tiết lớp học</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push('/dashboard/classes')}>
+            Quay lại
+          </Button>
+          <Button variant="outline" onClick={() => router.push(`/dashboard/classes/${classId}/edit`)}>
+            Chỉnh sửa
+          </Button>
         </div>
+      </div>
 
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Bài thi</h3>
-            {isTeacher && (
-              <Button
-                onClick={() =>
-                  router.push(`/dashboard/classes/${classId}/exams/create`)
-                }
-              >
-                Tạo bài thi mới
-              </Button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {exams.map((exam) => (
-              <Card key={exam.id}>
-                <Card.Body>
-                  <h4 className="text-lg font-medium text-gray-900">
-                    {exam.title}
-                  </h4>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {exam.description}
-                  </p>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Thời gian: {exam.duration} phút
-                  </p>
-                  <div className="mt-4">
-                    <Link
-                      href={`/dashboard/exams/${exam.id}`}
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      {isTeacher ? 'Quản lý bài thi' : 'Làm bài thi'} →
-                    </Link>
-                  </div>
-                </Card.Body>
-              </Card>
-            ))}
-          </div>
-
-          {exams.length === 0 && (
-            <div className="text-center py-12">
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
-                Chưa có bài thi nào
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {isTeacher
-                  ? 'Bắt đầu bằng cách tạo bài thi mới.'
-                  : 'Giáo viên chưa tạo bài thi nào.'}
-              </p>
-              {isTeacher && (
-                <div className="mt-6">
-                  <Button
-                    onClick={() =>
-                      router.push(`/dashboard/classes/${classId}/exams/create`)
-                    }
-                  >
-                    Tạo bài thi
-                  </Button>
+      <div className="grid gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Thông tin chung</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-medium mb-1">Tên lớp</h3>
+                  <p>{classData.name}</p>
                 </div>
-              )}
+                <div>
+                  <h3 className="font-medium mb-1">Mã lớp</h3>
+                  <Badge variant="secondary">{classData.classCode}</Badge>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-medium mb-1">Mô tả</h3>
+                <p className="text-muted-foreground">{classData.description}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Số học viên</p>
+                    <p className="font-medium">{classData.studentCount}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Môn học</p>
+                    <p className="font-medium">{classData.subjectName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Ngày tạo</p>
+                    <p className="font-medium">{format(new Date(classData.createdAt), 'dd/MM/yyyy')}</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle>Danh sách bài thi</CardTitle>
+            <Button onClick={() => router.push(`/dashboard/classes/${classId}/exams/create`)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Thêm bài thi
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {exams.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {exams.map((exam) => (
+                  <Card key={exam.id}>
+                    <CardContent className="pt-6">
+                      <h4 className="font-semibold mb-2">{exam.title}</h4>
+                      <p className="text-sm text-muted-foreground mb-4">{exam.description}</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{exam.duration} phút</span>
+                        </div>
+                        <Button variant="outline" asChild>
+                          <Link href={`/dashboard/exams/${exam.id}`}>
+                            Xem chi tiết
+                          </Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <h3 className="text-lg font-semibold mb-2">Chưa có bài thi nào</h3>
+                <p className="text-muted-foreground mb-4">Bắt đầu bằng cách tạo bài thi mới.</p>
+                <Button onClick={() => router.push(`/dashboard/classes/${classId}/exams/create`)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tạo bài thi
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

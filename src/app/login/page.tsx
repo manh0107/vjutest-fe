@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -11,8 +11,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
-  const { login } = useAuth()
+  const { user, login } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') {
+        router.push('/dashboard')
+      } else if (user.role === 'teacher') {
+        router.push('/teacher')
+      } else if (user.role === 'student') {
+        router.push('/student')
+      } else {
+        router.push('/')
+      }
+    }
+  }, [user, router])
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {}
@@ -42,14 +56,33 @@ export default function LoginPage() {
     
     setIsLoading(true)
     try {
-      await login(email, password)
+      console.log('Sending login request with:', { email, password })
+      const response = await fetch('http://localhost:8080/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Đăng nhập thất bại')
+      }
+
+      const data = await response.json()
+      console.log('Login response:', data)
+
+      if (!data.token) {
+        throw new Error('Không nhận được token từ server')
+      }
+
+      login(data.token)
       toast.success('Đăng nhập thành công!')
     } catch (error: any) {
-      if (error.response?.data?.message) {
-        toast.error(error.response.data.message)
-      } else {
-        toast.error('Đăng nhập thất bại. Vui lòng thử lại sau')
-      }
+      console.error('Login error:', error)
+      toast.error(error.message || 'Đăng nhập thất bại')
     } finally {
       setIsLoading(false)
     }

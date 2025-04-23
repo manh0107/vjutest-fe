@@ -1,111 +1,153 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
 import { classService } from '@/services/classService'
-import Card from '@/components/Card'
-import Button from '@/components/Button'
-import Input from '@/components/Input'
-import { useForm } from '@/hooks/useForm'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-
-interface CreateClassForm {
-  name: string
-  description: string
-}
 
 export default function CreateClassPage() {
   const router = useRouter()
-  const { user } = useAuth()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const { values, errors, handleChange, handleSubmit } = useForm<CreateClassForm>({
-    initialValues: {
-      name: '',
-      description: '',
-    },
-    validate: (values) => {
-      const errors: Partial<CreateClassForm> = {}
-      if (!values.name) {
-        errors.name = 'Vui lòng nhập tên lớp học'
-      }
-      if (!values.description) {
-        errors.description = 'Vui lòng nhập mô tả lớp học'
-      }
-      return errors
-    },
-    onSubmit: async (values) => {
-      if (!user || user.role !== 'TEACHER') {
-        toast.error('Bạn không có quyền tạo lớp học')
-        return
-      }
-
-      setIsSubmitting(true)
-      try {
-        await classService.createClass(values)
-        toast.success('Tạo lớp học thành công')
-        router.push('/dashboard/classes')
-      } catch (error) {
-        console.error('Error creating class:', error)
-        toast.error('Có lỗi xảy ra khi tạo lớp học')
-      } finally {
-        setIsSubmitting(false)
-      }
-    },
+  const [loading, setLoading] = useState(false)
+  const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([])
+  const [formData, setFormData] = useState({
+    name: '',
+    classCode: '',
+    description: '',
+    subjectId: 0,
   })
 
+  useEffect(() => {
+    // Fetch subjects when component mounts
+    const fetchSubjects = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/subjects/all')
+        const data = await response.json()
+        setSubjects(data)
+      } catch (error) {
+        console.error('Lỗi tải danh sách môn học:', error)
+        toast.error('Không thể tải danh sách môn học')
+      }
+    }
+    fetchSubjects()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      await classService.createClass({
+        name: formData.name,
+        classCode: formData.classCode,
+        description: formData.description,
+        subjectId: formData.subjectId,
+      })
+      toast.success('Tạo lớp học thành công')
+      router.push('/dashboard/classes')
+    } catch (error) {
+      console.error('Lỗi tạo lớp học:', error)
+      toast.error('Không thể tạo lớp học')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleSubjectChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      subjectId: parseInt(value)
+    }))
+  }
+
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <div className="px-4 py-6 sm:px-0">
-        <div className="max-w-3xl mx-auto">
-          <Card>
-            <Card.Header>
-              <h2 className="text-lg font-medium text-gray-900">
-                Tạo lớp học mới
-              </h2>
-            </Card.Header>
-            <Card.Body>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <Input
-                  label="Tên lớp học"
-                  name="name"
-                  value={values.name}
-                  onChange={handleChange}
-                  error={errors.name}
-                  required
-                />
-
-                <Input
-                  label="Mô tả"
-                  name="description"
-                  value={values.description}
-                  onChange={handleChange}
-                  error={errors.description}
-                  required
-                />
-
-                <div className="flex justify-end space-x-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.back()}
-                  >
-                    Hủy
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={isSubmitting}
-                  >
-                    Tạo lớp học
-                  </Button>
-                </div>
-              </form>
-            </Card.Body>
-          </Card>
-        </div>
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Thêm lớp học mới</h2>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Thông tin lớp học</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Tên lớp học</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Nhập tên lớp học"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="classCode">Mã lớp học</Label>
+              <Input
+                id="classCode"
+                name="classCode"
+                value={formData.classCode}
+                onChange={handleChange}
+                placeholder="Nhập mã lớp học"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="subjectId">Môn học</Label>
+              <Select onValueChange={handleSubjectChange} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn môn học" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id.toString()}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Mô tả</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Nhập mô tả lớp học"
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                disabled={loading}
+              >
+                Hủy
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Đang tạo...' : 'Tạo lớp học'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 } 

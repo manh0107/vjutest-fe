@@ -4,6 +4,7 @@ import { jwtDecode } from 'jwt-decode'
 
 const API_URL = 'http://localhost:8080'
 const REFRESH_INTERVAL = 4.5 * 60 * 1000 // 4 phút 30 giây
+const REFRESH_CHECK_INTERVAL = 1000 // 1 giây
 
 export interface LoginResponse {
   token: string
@@ -23,12 +24,23 @@ export interface RegisterData {
 
 export interface User {
   id: number
-  username: string
+  name: string
   email: string
   role: string
+  image?: string
+  code?: string
+  phoneNumber?: number
+  className?: string
+  gender?: string
+  isEnabled: boolean
+  createdAt: string
 }
 
 let refreshInterval: NodeJS.Timeout | null = null
+let lastRefreshTime = 0
+
+// Broadcast channel để đồng bộ giữa các tab
+const refreshChannel = typeof window !== 'undefined' ? new BroadcastChannel('token-refresh') : null
 
 // Cấu hình axios mặc định
 axios.defaults.baseURL = API_URL
@@ -114,18 +126,29 @@ export const authService = {
 
   async refreshToken(): Promise<string> {
     try {
+      // Kiểm tra xem có tab khác đang refresh không
+      const now = Date.now()
+      if (now - lastRefreshTime < 10000) { // Trong vòng 10 giây
+        return this.getToken() || ''
+      }
+
+      lastRefreshTime = now
+      refreshChannel?.postMessage({ type: 'refreshing', time: now })
+
       const response = await axios.post<LoginResponse>('/auth/refresh-token', null, {
         withCredentials: true
       })
 
       if (response.data.token) {
         this.setToken(response.data.token)
+        refreshChannel?.postMessage({ type: 'refreshed', token: response.data.token })
         return response.data.token
       }
 
       throw new Error('Không nhận được token mới')
     } catch (error: any) {
       console.error('Lỗi làm mới token:', error)
+      refreshChannel?.postMessage({ type: 'refresh-error', error: error.message })
       if (error.response?.status === 403) {
         const errorMessage = error.response?.data?.message
         if (errorMessage && errorMessage.includes('expired')) {
@@ -141,17 +164,32 @@ export const authService = {
     // Dừng interval cũ nếu có
     this.stopRefreshInterval()
     
+    // Thiết lập lắng nghe sự kiện từ các tab khác
+    if (refreshChannel) {
+      refreshChannel.onmessage = (event) => {
+        const { type, token, time } = event.data
+        if (type === 'refreshing') {
+          lastRefreshTime = time
+        } else if (type === 'refreshed' && token) {
+          this.setToken(token)
+        }
+      }
+    }
+    
     // Bắt đầu interval mới
     refreshInterval = setInterval(async () => {
       try {
-        console.log('Đang tự động làm mới token...')
-        await this.refreshToken()
-        console.log('Làm mới token thành công')
+        const token = this.getToken()
+        if (!token || this.isTokenExpired(token)) {
+          console.log('Đang tự động làm mới token...')
+          await this.refreshToken()
+          console.log('Làm mới token thành công')
+        }
       } catch (error) {
         console.error('Lỗi khi tự động làm mới token:', error)
         this.stopRefreshInterval()
       }
-    }, REFRESH_INTERVAL)
+    }, REFRESH_CHECK_INTERVAL)
   },
 
   stopRefreshInterval(): void {
@@ -159,6 +197,7 @@ export const authService = {
       clearInterval(refreshInterval)
       refreshInterval = null
     }
+    refreshChannel?.close()
   },
 
   async getValidToken(): Promise<string> {

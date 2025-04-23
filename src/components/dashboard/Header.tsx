@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 
@@ -12,7 +12,7 @@ export function Header() {
       <div>
         <h1 className="text-2xl font-bold">Chào mừng, {user?.name}!</h1>
         <p className="text-sm text-muted-foreground">
-          Vai trò: {(typeof user?.role === 'object' ? user.role.name : user?.role)?.toUpperCase()}
+          Vai trò: {user?.role?.toUpperCase()}
         </p>
       </div>
       <div className="flex items-center gap-4">

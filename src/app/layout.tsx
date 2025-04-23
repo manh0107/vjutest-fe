@@ -1,18 +1,18 @@
-'use client'
-
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { AuthProvider } from "@/context/AuthContext";
-import { Toaster } from "sonner";
-import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { Providers } from '@/components/providers'
 
 const inter = Inter({ 
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
   preload: true,
-});
+})
+
+export const metadata: Metadata = {
+  title: 'VJUTest',
+  description: 'Hệ thống quản lý và tổ chức thi trực tuyến',
+}
 
 export default function RootLayout({
   children,
@@ -21,50 +21,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <div className="fixed right-4 top-4 z-50">
-              <ThemeToggle />
-            </div>
-            <main className="relative flex min-h-screen flex-col">
-              {children}
-            </main>
-            <Toaster 
-              position="top-right"
-              toastOptions={{
-                unstyled: true,
-                classNames: {
-                  toast: "group p-4 pr-12 rounded-lg shadow-lg relative border-l-4 bg-white dark:bg-gray-900",
-                  title: "font-medium text-base mb-1",
-                  description: "text-sm",
-                  actionButton: "bg-primary text-primary-foreground",
-                  cancelButton: "bg-muted text-muted-foreground",
-                  success: "[&>div>.sonner-title]:text-emerald-700 [&>div>.sonner-description]:text-emerald-600 [&>div>.sonner-closeButton]:bg-emerald-100 [&>div>.sonner-closeButton]:text-emerald-700 border-emerald-500 dark:[&>div>.sonner-title]:text-emerald-300 dark:[&>div>.sonner-description]:text-emerald-400 dark:[&>div>.sonner-closeButton]:bg-emerald-900/30 dark:[&>div>.sonner-closeButton]:text-emerald-300",
-                  error: "[&>div>.sonner-title]:text-rose-700 [&>div>.sonner-description]:text-rose-600 [&>div>.sonner-closeButton]:bg-rose-100 [&>div>.sonner-closeButton]:text-rose-700 border-rose-500 dark:[&>div>.sonner-title]:text-rose-300 dark:[&>div>.sonner-description]:text-rose-400 dark:[&>div>.sonner-closeButton]:bg-rose-900/30 dark:[&>div>.sonner-closeButton]:text-rose-300",
-                  info: "[&>div>.sonner-title]:text-blue-700 [&>div>.sonner-description]:text-blue-600 [&>div>.sonner-closeButton]:bg-blue-100 [&>div>.sonner-closeButton]:text-blue-700 border-blue-500 dark:[&>div>.sonner-title]:text-blue-300 dark:[&>div>.sonner-description]:text-blue-400 dark:[&>div>.sonner-closeButton]:bg-blue-900/30 dark:[&>div>.sonner-closeButton]:text-blue-300",
-                  warning: "[&>div>.sonner-title]:text-amber-700 [&>div>.sonner-description]:text-amber-600 [&>div>.sonner-closeButton]:bg-amber-100 [&>div>.sonner-closeButton]:text-amber-700 border-amber-500 dark:[&>div>.sonner-title]:text-amber-300 dark:[&>div>.sonner-description]:text-amber-400 dark:[&>div>.sonner-closeButton]:bg-amber-900/30 dark:[&>div>.sonner-closeButton]:text-amber-300",
-                  closeButton: "absolute right-2 top-2 rounded-md w-6 h-6 inline-flex items-center justify-center hover:opacity-90 transition-all",
-                },
-              }}
-              theme="system"
-              duration={4000}
-              visibleToasts={5}
-              closeButton
-              expand
-              gap={8}
-              offset={50}
-              invert={false}
-              richColors={false}
-            />
-          </AuthProvider>
-        </ThemeProvider>
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
       </body>
     </html>
-  );
+  )
 }
