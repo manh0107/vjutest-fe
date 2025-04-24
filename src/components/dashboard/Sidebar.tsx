@@ -13,12 +13,12 @@ import {
 } from 'lucide-react'
 
 const navigation = [
-  { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Users', href: '/dashboard/users', icon: Users },
-  { name: 'Classes', href: '/dashboard/classes', icon: GraduationCap },
-  { name: 'Exams', href: '/dashboard/exams', icon: FileText },
-  { name: 'Subjects', href: '/dashboard/subjects', icon: BookOpen },
-  { name: 'Results', href: '/dashboard/results', icon: BarChart },
+  { name: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Người dùng', href: '/dashboard/users', icon: Users },
+  { name: 'Lớp học', href: '/dashboard/classes', icon: GraduationCap },
+  { name: 'Bài kiểm tra', href: '/dashboard/exams', icon: FileText },
+  { name: 'Môn học', href: '/dashboard/subjects', icon: BookOpen },
+  { name: 'Kết quả', href: '/dashboard/results', icon: BarChart },
 ]
 
 export function Sidebar() {

@@ -24,9 +24,11 @@ export default function ExamsPage() {
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
-    fetchSubjects()
-    fetchClasses()
-  }, [])
+    if (user) {
+      fetchSubjects()
+      fetchClasses()
+    }
+  }, [user])
 
   useEffect(() => {
     if (user && selectedSubjectId) {
@@ -57,20 +59,22 @@ export default function ExamsPage() {
       if (data.length > 0) {
         setSelectedSubjectId(data[0].id)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching subjects:', error)
-      toast.error('Không thể tải danh sách môn học')
+      toast.error(error.message)
     }
   }
 
   const fetchClasses = async () => {
+    if (!user) return
+
     try {
       const token = localStorage.getItem('token')
       if (!token) {
         throw new Error('Không tìm thấy token')
       }
 
-      const response = await fetch('http://localhost:8080/classes/all', {
+      const response = await fetch(`http://localhost:8080/classes/all?userId=${user.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -86,9 +90,9 @@ export default function ExamsPage() {
       if (data.length > 0) {
         setSelectedClassId(data[0].id)
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Chỉ log lỗi, không hiển thị toast vì có thể user chưa có lớp học nào
       console.error('Error fetching classes:', error)
-      toast.error('Không thể tải danh sách lớp học')
     }
   }
 
@@ -136,7 +140,7 @@ export default function ExamsPage() {
 
             <div className="flex gap-2 w-full sm:w-auto">
               <Select
-                value={selectedSubjectId?.toString()}
+                value={selectedSubjectId?.toString() || ""}
                 onValueChange={(value) => setSelectedSubjectId(Number(value))}
               >
                 <SelectTrigger className="w-full sm:w-[180px]">
@@ -153,7 +157,7 @@ export default function ExamsPage() {
 
               {activeTab === 'class' && (
                 <Select
-                  value={selectedClassId?.toString()}
+                  value={selectedClassId?.toString() || ""}
                   onValueChange={(value) => setSelectedClassId(Number(value))}
                 >
                   <SelectTrigger className="w-full sm:w-[180px]">

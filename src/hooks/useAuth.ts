@@ -9,52 +9,58 @@ export function useAuth() {
   const router = useRouter()
 
   useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('token')
-      const userData = localStorage.getItem('user')
+    let isMounted = true
 
-      console.log('useAuth hook: Checking authentication state', {
-        hasToken: !!token,
-        hasUserData: !!userData
-      })
-
-      if (!token) {
-        console.log('useAuth hook: No token found')
-        setLoading(false)
-        return
-      }
-
+    const checkAuth = async () => {
       try {
-        // Nếu có user data trong localStorage, sử dụng nó
-        if (userData) {
-          const parsedUser = JSON.parse(userData)
-          console.log('useAuth hook: Successfully parsed user data', {
-            userId: parsedUser.id,
-            role: parsedUser.role
-          })
-          setUser(parsedUser)
-        } 
-        // Nếu có token nhưng không có user data, lấy từ API
-        else {
-          console.log('useAuth hook: Token exists but no user data, fetching from API')
-          const currentUser = await userService.getCurrentUser()
-          console.log('useAuth hook: Successfully fetched user data from API', {
-            userId: currentUser.id,
-            role: currentUser.role
-          })
-          localStorage.setItem('user', JSON.stringify(currentUser))
-          setUser(currentUser)
+        const token = localStorage.getItem('token')
+        const userData = localStorage.getItem('user')
+
+        if (!token) {
+          if (isMounted) {
+            setUser(null)
+            setLoading(false)
+          }
+          return
+        }
+
+        if (!userData) {
+          try {
+            const currentUser = await userService.getCurrentUser()
+            if (isMounted) {
+              localStorage.setItem('user', JSON.stringify(currentUser))
+              setUser(currentUser)
+              setLoading(false)
+            }
+          } catch (error) {
+            if (isMounted) {
+              localStorage.removeItem('token')
+              localStorage.removeItem('user')
+              setUser(null)
+              setLoading(false)
+            }
+          }
+        } else {
+          if (isMounted) {
+            setUser(JSON.parse(userData))
+            setLoading(false)
+          }
         }
       } catch (error) {
-        console.error('useAuth hook: Error initializing auth:', error)
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-      } finally {
-        setLoading(false)
+        if (isMounted) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          setUser(null)
+          setLoading(false)
+        }
       }
     }
 
-    initAuth()
+    checkAuth()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const login = (token: string, user: User) => {

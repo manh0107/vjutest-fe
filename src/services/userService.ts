@@ -56,7 +56,7 @@ export const userService = {
     }
   },
 
-  async createUser(data: Partial<User>): Promise<User> {
+  async createUser(userData: Partial<User>): Promise<User> {
     try {
       const token = localStorage.getItem('token')
       if (!token) {
@@ -65,7 +65,7 @@ export const userService = {
 
       // Chuyển đổi role ID theo định dạng của backend
       let roleId: number;
-      switch (data.role) {
+      switch (userData.role) {
         case 'ROLE_ADMIN':
           roleId = 3; // admin
           break;
@@ -79,65 +79,89 @@ export const userService = {
           roleId = 1; // mặc định là student
       }
 
-      // Log để debug
-      console.log('Converting role to ID:', { role: data.role, roleId });
-
       // Định dạng dữ liệu theo yêu cầu của backend
-      const userData = {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-        code: data.code,
-        phoneNumber: data.phoneNumber,
-        className: data.className || null,
-        gender: data.gender || null,
+      const formattedData = {
+        name: userData.name,
+        email: userData.email,
+        password: userData.password,
+        code: userData.code,
+        phoneNumber: userData.phoneNumber,
+        className: userData.className || null,
+        gender: userData.gender || null,
         role: {
           id: roleId
         },
-        isEnabled: data.isEnabled,
-        image: data.image || "https://static.vecteezy.com/system/resources/thumbnails/020/765/399/small/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg"
+        isEnabled: userData.isEnabled,
+        image: userData.image || "https://static.vecteezy.com/system/resources/thumbnails/020/765/399/small/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg"
       }
 
-      console.log('Creating user with data:', userData);
-
-      const response = await axios.post(`${API_URL}/users/create`, userData, {
+      const response = await fetch(`${API_URL}/users/create`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formattedData)
       })
-      console.log('Server response:', response.data);
-      return response.data
-    } catch (error: any) {
-      console.error('Lỗi khi tạo người dùng:', error.response || error)
-      if (error.response?.status === 403) {
-        throw new Error('Bạn không có quyền tạo người dùng mới. Vui lòng đăng nhập với tài khoản admin.')
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorMessage = 'Không thể tạo người dùng'
+        
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          // Nếu không parse được JSON, sử dụng text response
+          errorMessage = errorText || errorMessage
+        }
+
+        if (response.status === 403) {
+          errorMessage = 'Bạn không có quyền tạo người dùng mới. Vui lòng đăng nhập với tài khoản admin.'
+        }
+
+        throw new Error(errorMessage)
       }
-      const errorMessage = error.response?.data || 'Không thể tạo người dùng'
-      throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage))
+
+      const responseText = await response.text()
+      if (!responseText) {
+        throw new Error('Không nhận được dữ liệu từ server')
+      }
+
+      try {
+        return JSON.parse(responseText)
+      } catch (e) {
+        throw new Error('Dữ liệu trả về không hợp lệ')
+      }
+    } catch (error: any) {
+      throw new Error(error.message || 'Không thể tạo người dùng')
     }
   },
 
-  async updateUser(id: number, data: Partial<User>): Promise<User> {
+  async updateUser(id: number, userData: Partial<User>): Promise<User> {
     try {
       const token = localStorage.getItem('token')
       if (!token) {
         throw new Error('Không tìm thấy token')
       }
 
-      console.log('Updating user with data:', data);
-
-      const response = await axios.put(`${API_URL}/users/update/${id}`, data, {
+      const response = await fetch(`${API_URL}/users/${id}`, {
+        method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userData)
       })
-      console.log('Server response:', response.data);
-      return response.data
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Không thể cập nhật người dùng')
+      }
+
+      return await response.json()
     } catch (error: any) {
-      console.error('Lỗi khi cập nhật người dùng:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể cập nhật người dùng')
+      throw new Error(error.message || 'Không thể cập nhật người dùng')
     }
   },
 

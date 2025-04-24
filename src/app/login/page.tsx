@@ -65,13 +65,36 @@ export default function LoginPage() {
       if (response.status === 200 && response.data.token) {
         const token = response.data.token
         await login(token)
+        toast.success('Đăng nhập thành công')
         router.push('/dashboard')
       } else {
         throw new Error('Đăng nhập thất bại')
       }
     } catch (error: any) {
-      console.error('Login error:', error.message)
-      toast.error(error.message || 'Đăng nhập thất bại')
+      console.error('Login error:', error)
+      if (error.response) {
+        // Xử lý lỗi từ server
+        const errorMessage = error.response.data?.message
+        if (errorMessage) {
+          if (errorMessage.includes('password')) {
+            toast.error('Mật khẩu không chính xác')
+          } else if (errorMessage.includes('email')) {
+            toast.error('Email không tồn tại')
+          } else if (errorMessage.includes('disabled')) {
+            toast.error('Tài khoản của bạn đã bị khóa')
+          } else {
+            toast.error(errorMessage)
+          }
+        } else {
+          toast.error('Đăng nhập thất bại. Vui lòng thử lại sau')
+        }
+      } else if (error.request) {
+        // Lỗi không nhận được response
+        toast.error('Không thể kết nối đến server')
+      } else {
+        // Lỗi khác
+        toast.error('Đã có lỗi xảy ra. Vui lòng thử lại')
+      }
     } finally {
       setIsLoading(false)
     }
