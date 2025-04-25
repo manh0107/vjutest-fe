@@ -50,51 +50,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateForm()) {
-      return
-    }
-    
     setIsLoading(true)
     try {
-      const response = await axios.post('http://localhost:8080/auth/login', {
-        email,
-        password
-      })
-
-      if (response.status === 200 && response.data.token) {
-        const token = response.data.token
-        await login(token)
-        toast.success('Đăng nhập thành công')
-        router.push('/dashboard')
-      } else {
-        throw new Error('Đăng nhập thất bại')
-      }
+      await login(email, password)
     } catch (error: any) {
       console.error('Login error:', error)
-      if (error.response) {
-        // Xử lý lỗi từ server
-        const errorMessage = error.response.data?.message
-        if (errorMessage) {
-          if (errorMessage.includes('password')) {
-            toast.error('Mật khẩu không chính xác')
-          } else if (errorMessage.includes('email')) {
-            toast.error('Email không tồn tại')
-          } else if (errorMessage.includes('disabled')) {
-            toast.error('Tài khoản của bạn đã bị khóa')
-          } else {
-            toast.error(errorMessage)
-          }
-        } else {
-          toast.error('Đăng nhập thất bại. Vui lòng thử lại sau')
-        }
-      } else if (error.request) {
-        // Lỗi không nhận được response
-        toast.error('Không thể kết nối đến server')
-      } else {
-        // Lỗi khác
-        toast.error('Đã có lỗi xảy ra. Vui lòng thử lại')
-      }
+      toast.error('Đăng nhập thất bại', {
+        description: error.message || 'Vui lòng kiểm tra lại thông tin đăng nhập'
+      })
     } finally {
       setIsLoading(false)
     }

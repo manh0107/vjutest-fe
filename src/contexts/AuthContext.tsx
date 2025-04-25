@@ -8,7 +8,7 @@ import { User } from '@/services/types'
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (token: string) => void
+  login: (email: string, password: string) => void
   logout: () => void
 }
 
@@ -60,23 +60,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router])
 
-  const login = async (token: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      localStorage.setItem('token', token)
-      authService.setToken(token)
-      
-      // Fetch user info
-      const user = await authService.getCurrentUser()
-      setUser(user)
-      
-      // Start refresh interval
-      authService.startRefreshInterval()
-      
-      // Redirect to dashboard
-      router.push('/dashboard')
-    } catch (error) {
+      const response = await authService.login(email, password)
+      if (response.token) {
+        // Token is already stored in localStorage by authService.login
+        const user = await authService.getCurrentUser()
+        if (user) {
+          setUser(user)
+          router.push('/dashboard')
+        } else {
+          throw new Error('Không thể lấy thông tin người dùng')
+        }
+      } else {
+        throw new Error('Đăng nhập thất bại')
+      }
+    } catch (error: any) {
       console.error('Error during login:', error)
-      logout()
+      throw new Error(error.message || 'Đăng nhập thất bại')
     }
   }
 

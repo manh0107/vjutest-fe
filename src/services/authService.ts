@@ -11,13 +11,15 @@ const MAX_RETRIES = 3
 let refreshInterval: NodeJS.Timeout | null = null
 let refreshPromise: Promise<string> | null = null
 
-// Cấu hình axios mặc định
-axios.defaults.baseURL = API_URL
-axios.defaults.withCredentials = true
+// Create a separate axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_URL,
+  withCredentials: true
+})
 
 // Cập nhật header Authorization cho tất cả request
 const updateAxiosHeaders = (token: string) => {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+  axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`
 }
 
 interface TokenResponse {
@@ -32,6 +34,7 @@ interface JwtPayload {
 export interface LoginResponse {
   token: string
   message: string
+  user?: UserType
 }
 
 export interface LoginCredentials {
@@ -55,19 +58,31 @@ export interface User {
   phoneNumber?: number
   className?: string
   gender?: string
+  department?: string
+  major?: string
   isEnabled: boolean
   createdAt: string
 }
 
 export const authService = {
-  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+  async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, credentials)
-      const { token } = response.data
-      if (token) {
-        this.setToken(token)
-        this.startRefreshInterval()
+      const response = await axiosInstance.post<LoginResponse>('/auth/login', {
+        email,
+        password
+      }, {
+        withCredentials: true
+      })
+
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token)
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`
+        
+        if (response.data.user) {
+          localStorage.setItem('user', JSON.stringify(response.data.user))
+        }
       }
+
       return response.data
     } catch (error: any) {
       console.error('Lỗi đăng nhập:', error)
@@ -76,21 +91,42 @@ export const authService = {
   },
 
   async register(data: RegisterData): Promise<void> {
-    await axios.post(`${API_URL}/auth/register`, data)
+    await axiosInstance.post('/auth/register', data)
   },
 
-  async getCurrentUser(): Promise<UserType> {
+  async getCurrentUser(): Promise<User | null> {
     try {
-      const token = await this.getValidToken()
-      const response = await axios.get('/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-      return response.data
+      // First check localStorage
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        return JSON.parse(storedUser)
+      }
+
+      // If no stored user, fetch from API
+      const response = await axiosInstance.get<User>('/auth/me')
+      if (response.data) {
+        localStorage.setItem('user', JSON.stringify(response.data))
+        return response.data
+      }
+      return null
     } catch (error: any) {
-      console.error('Lỗi lấy thông tin người dùng:', error)
-      throw new Error(error.response?.data?.message || 'Không thể lấy thông tin người dùng')
+      console.error('Error getting current user:', error.message)
+      if (error.response?.status === 401) {
+        // Token might be expired, try to refresh
+        try {
+          await this.refreshToken()
+          // Retry getting user after token refresh
+          const response = await axiosInstance.get<User>('/auth/me')
+          if (response.data) {
+            localStorage.setItem('user', JSON.stringify(response.data))
+            return response.data
+          }
+        } catch (refreshError) {
+          // If refresh fails, clear everything and return null
+          this.logout()
+        }
+      }
+      return null
     }
   },
 
@@ -98,16 +134,16 @@ export const authService = {
     return localStorage.getItem('token')
   },
 
-  setToken(token: string): void {
-    localStorage.setItem('token', token)
-    updateAxiosHeaders(token)
-  },
-
   logout(): void {
+    // Clear token and user from localStorage
     localStorage.removeItem('token')
-    delete axios.defaults.headers.common['Authorization']
-    this.stopRefreshInterval()
-    axios.post('/auth/logout', null, { withCredentials: true })
+    localStorage.removeItem('user')
+    
+    // Clear axios headers
+    delete axiosInstance.defaults.headers.common['Authorization']
+    
+    // Call logout endpoint to clear refresh token cookie
+    axiosInstance.post('/auth/logout')
       .catch(error => console.error('Lỗi khi logout:', error))
   },
 
@@ -117,51 +153,22 @@ export const authService = {
   },
 
   async refreshToken(): Promise<string> {
-    if (refreshPromise) {
-      return refreshPromise
-    }
+    try {
+      const response = await axiosInstance.post<LoginResponse>('/auth/refresh-token', null, {
+        withCredentials: true
+      })
 
-    refreshPromise = (async () => {
-      let retries = MAX_RETRIES
-      let delay = INITIAL_RETRY_DELAY
-
-      while (retries > 0) {
-        try {
-          console.log(`Đang thử refresh token... (còn ${retries} lần thử)`)
-          const response = await axios.post<LoginResponse>('/auth/refresh-token', null, {
-            withCredentials: true
-          })
-
-          if (response.data.token) {
-            this.setToken(response.data.token)
-            console.log('Refresh token thành công')
-            return response.data.token
-          }
-          throw new Error('Không nhận được token mới')
-        } catch (error: any) {
-          retries--
-          console.error(`Lỗi refresh token (còn ${retries} lần thử):`, error.message)
-
-          // Nếu token hết hạn hoặc không còn lần thử nào
-          if (retries === 0 || error.response?.status === 403) {
-            this.logout()
-            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
-          }
-
-          // Đợi với thời gian tăng dần trước khi thử lại
-          await new Promise(resolve => setTimeout(resolve, delay))
-          delay = Math.min(delay * 2, MAX_RETRY_DELAY)
-        }
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token)
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`
+        return response.data.token
       }
-      throw new Error('Không thể làm mới token sau nhiều lần thử')
-    })()
-
-    // Đảm bảo refreshPromise được reset kể cả khi có lỗi
-    refreshPromise.catch(() => {}).finally(() => {
-      refreshPromise = null
-    })
-
-    return refreshPromise
+      throw new Error('Không nhận được token mới')
+    } catch (error: any) {
+      console.error('Lỗi refresh token:', error.message)
+      this.logout()
+      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+    }
   },
 
   startRefreshInterval(): void {

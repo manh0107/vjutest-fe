@@ -4,15 +4,16 @@ export interface User {
   id: number
   name: string
   email: string
-  code: string
-  phoneNumber: string | number
+  role: string
+  image?: string
+  code?: string
+  phoneNumber?: number
   className?: string
   gender?: string
-  role: string | { id: number, name: string }
-  password?: string
-  createdAt?: string
+  department?: string
+  major?: string
   isEnabled: boolean
-  image?: string
+  createdAt: string
 }
 
 export interface Class {
