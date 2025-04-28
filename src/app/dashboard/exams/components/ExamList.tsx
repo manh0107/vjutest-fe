@@ -97,7 +97,7 @@ export function ExamList({ exams, loading }: ExamListProps) {
             {/* Subject Info */}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BookOpen className="h-4 w-4" />
-              <span>{exam.subject.name}</span>
+              <span>{exam.subject.name} - {exam.subject.code}</span>
             </div>
 
             {/* Stats */}

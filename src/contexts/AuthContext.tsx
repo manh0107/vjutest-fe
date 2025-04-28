@@ -1,9 +1,11 @@
-'use client'
+"use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { authService } from '@/services/authService'
 import { useRouter } from 'next/navigation'
 import { User } from '@/services/types'
+import { Button } from '@/components/ui/button'
+import { Pencil, Trash2 } from 'lucide-react'
 
 interface AuthContextType {
   user: User | null
@@ -44,9 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               router.push('/login')
             }
           }
+        } else {
+          // Không có token, chuyển về trang login
+          router.push('/login')
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
+        // Nếu có lỗi khởi tạo, logout và chuyển về trang login
+        authService.logout()
+        router.push('/login')
       } finally {
         setLoading(false)
       }
@@ -82,9 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
-    localStorage.removeItem('token')
     authService.logout()
     setUser(null)
+    router.push('/login')
   }
 
   return (

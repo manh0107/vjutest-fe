@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { authService } from './authService'
 
+axios.defaults.baseURL = 'http://localhost:8080'; // Đảm bảo mọi request trỏ về BE
+
 export interface Subject {
   id: number
   name: string
@@ -11,6 +13,10 @@ export interface Subject {
   createdById: number
   createdByName: string
   exams: any[] // You can define a proper Exam interface if needed
+  majorId?: number
+  majorIds?: number[]
+  departmentIds?: number[]
+  visibility: 'PUBLIC' | 'DEPARTMENT' | 'MAJOR'
 }
 
 interface UserInfo {
@@ -23,6 +29,9 @@ export interface CreateSubjectData {
   subjectCode: string
   description: string
   creditHour: number
+  visibility: 'PUBLIC' | 'DEPARTMENT' | 'MAJOR'
+  departmentIds?: number[]
+  majorIds?: number[]
 }
 
 export interface UpdateSubjectData {
@@ -30,6 +39,7 @@ export interface UpdateSubjectData {
   subjectCode?: string
   description?: string
   creditHour?: number
+  majorId?: number
 }
 
 export const subjectService = {

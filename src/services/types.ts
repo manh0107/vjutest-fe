@@ -4,14 +4,21 @@ export interface User {
   id: number
   name: string
   email: string
-  role: string
-  image?: string
-  code?: string
-  phoneNumber?: number
+  code: number
+  phoneNumber: number
+  gender: string
+  image: string
+  role: string | { id: number }
+  password?: string
   className?: string
-  gender?: string
-  department?: string
-  major?: string
+  department?: {
+    id: number
+    name: string
+  }
+  major?: {
+    id: number
+    name: string
+  }
   isEnabled: boolean
   createdAt: string
 }

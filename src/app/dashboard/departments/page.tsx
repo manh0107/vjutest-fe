@@ -1,67 +1,59 @@
-"use client";
+"use client"
 
 import { useEffect, useState, useMemo } from 'react';
-import { majorService, Major } from '@/services/majorService';
 import { departmentService, Department } from '@/services/departmentService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Pencil, Trash2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const PAGE_SIZE = 5;
 
-export default function MajorManagement() {
-  const [majors, setMajors] = useState<Major[]>([]);
+export default function DepartmentManagement() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedMajor, setSelectedMajor] = useState<Major | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [name, setName] = useState('');
-  const [departmentId, setDepartmentId] = useState<string>('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formError, setFormError] = useState('');
 
-  const fetchData = async () => {
+  const fetchDepartments = async () => {
     setLoading(true);
     try {
-      const [majorsData, departmentsData] = await Promise.all([
-        majorService.getAllMajors(),
-        departmentService.getAllDepartments()
-      ]);
-      setMajors(majorsData);
-      setDepartments(departmentsData);
+      const data = await departmentService.getAllDepartments();
+      setDepartments(data);
     } catch (err) {
-      toast.error('Không thể tải dữ liệu ngành/khoa');
+      toast.error('Không thể tải danh sách khoa');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchDepartments();
   }, []);
 
   // Lọc theo tìm kiếm
-  const filteredMajors = useMemo(() => {
-    return majors.filter(major =>
-      major.name.toLowerCase().includes(search.toLowerCase()) ||
-      (major.departmentName || '').toLowerCase().includes(search.toLowerCase())
+  const filteredDepartments = useMemo(() => {
+    return departments.filter(dept =>
+      dept.name.toLowerCase().includes(search.toLowerCase())
     );
-  }, [majors, search]);
+  }, [departments, search]);
 
   // Phân trang
-  const totalPages = Math.ceil(filteredMajors.length / PAGE_SIZE);
-  const paginatedMajors = useMemo(() => {
+  const totalPages = Math.ceil(filteredDepartments.length / PAGE_SIZE);
+  const paginatedDepartments = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredMajors.slice(start, start + PAGE_SIZE);
-  }, [filteredMajors, currentPage]);
+    return filteredDepartments.slice(start, start + PAGE_SIZE);
+  }, [filteredDepartments, currentPage]);
 
   // Reset trang về 1 khi tìm kiếm
   useEffect(() => {
@@ -71,40 +63,34 @@ export default function MajorManagement() {
   const openAddModal = () => {
     setModalMode('add');
     setName('');
-    setDepartmentId('');
-    setSelectedMajor(null);
+    setSelectedDepartment(null);
     setFormError('');
     setIsModalOpen(true);
   };
 
-  const openEditModal = (major: Major) => {
+  const openEditModal = (dept: Department) => {
     setModalMode('edit');
-    setName(major.name);
-    setDepartmentId(String(major.departmentId));
-    setSelectedMajor(major);
+    setName(dept.name);
+    setSelectedDepartment(dept);
     setFormError('');
     setIsModalOpen(true);
   };
 
   const handleModalSubmit = async () => {
     if (!name.trim()) {
-      setFormError('Tên ngành không được để trống');
-      return;
-    }
-    if (!departmentId) {
-      setFormError('Vui lòng chọn khoa');
+      setFormError('Tên khoa không được để trống');
       return;
     }
     try {
       if (modalMode === 'add') {
-        await majorService.createMajor({ name: name.trim(), departmentId: Number(departmentId), createdAt: '', createdById: 0, createdByName: '' });
-        toast.success('Thêm ngành thành công');
-      } else if (modalMode === 'edit' && selectedMajor) {
-        await majorService.updateMajor(selectedMajor.id, { name: name.trim(), departmentId: Number(departmentId) });
-        toast.success('Cập nhật ngành thành công');
+        await departmentService.createDepartment(name.trim());
+        toast.success('Thêm khoa thành công');
+      } else if (modalMode === 'edit' && selectedDepartment) {
+        await departmentService.updateDepartment(selectedDepartment.id, name.trim());
+        toast.success('Cập nhật khoa thành công');
       }
       setIsModalOpen(false);
-      fetchData();
+      fetchDepartments();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Có lỗi xảy ra');
     }
@@ -113,12 +99,12 @@ export default function MajorManagement() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      await majorService.deleteMajor(deleteId);
-      toast.success('Xóa ngành thành công');
+      await departmentService.deleteDepartment(deleteId);
+      toast.success('Xóa khoa thành công');
       setIsDeleteDialogOpen(false);
-      fetchData();
+      fetchDepartments();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Không thể xóa ngành');
+      toast.error(err?.response?.data?.message || 'Không thể xóa khoa');
     }
   };
 
@@ -127,26 +113,26 @@ export default function MajorManagement() {
       <div className="bg-white rounded-xl shadow p-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-1 text-center md:text-left">Quản lý Ngành</h1>
-            <p className="text-gray-500 text-sm">Danh sách các ngành trong hệ thống</p>
+            <h1 className="text-3xl font-bold text-gray-800 mb-1 text-center md:text-left">Quản lý Khoa</h1>
+            <p className="text-gray-500 text-sm">Danh sách các khoa trong hệ thống</p>
           </div>
           <div className="flex gap-2 items-center">
             <Input
               className="w-56"
-              placeholder="Tìm kiếm tên ngành hoặc khoa..."
+              placeholder="Tìm kiếm tên khoa..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <Button onClick={openAddModal} className="h-10">+ Thêm ngành</Button>
+            <Button onClick={openAddModal} className="h-10">+ Thêm khoa</Button>
           </div>
         </div>
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="min-w-[200px]">Tên ngành</TableHead>
-                <TableHead className="min-w-[180px]">Khoa</TableHead>
-                <TableHead className="min-w-[120px]">Người tạo</TableHead>
+                <TableHead className="w-16">ID</TableHead>
+                <TableHead className="min-w-[200px]">Tên khoa</TableHead>
+                <TableHead className="min-w-[150px]">Người tạo</TableHead>
                 <TableHead className="min-w-[120px]">Ngày tạo</TableHead>
                 <TableHead className="text-right min-w-[120px]">Thao tác</TableHead>
               </TableRow>
@@ -161,29 +147,29 @@ export default function MajorManagement() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : paginatedMajors.length === 0 ? (
+              ) : paginatedDepartments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">Không có ngành nào</TableCell>
+                  <TableCell colSpan={5} className="text-center py-8">Không có khoa nào</TableCell>
                 </TableRow>
-              ) : paginatedMajors.map(major => (
-                <TableRow key={major.id}>
-                  <TableCell>{major.name}</TableCell>
-                  <TableCell>{major.departmentName || (departments.find(d => d.id === Number(major.departmentId))?.name ?? '-') }</TableCell>
-                  <TableCell>{major.createdByName}</TableCell>
-                  <TableCell>{new Date(major.createdAt).toLocaleDateString('vi-VN')}</TableCell>
+              ) : paginatedDepartments.map(dept => (
+                <TableRow key={dept.id}>
+                  <TableCell>{dept.id}</TableCell>
+                  <TableCell>{dept.name}</TableCell>
+                  <TableCell>{dept.createdByName}</TableCell>
+                  <TableCell>{new Date(dept.createdAt).toLocaleDateString('vi-VN')}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => openEditModal(major)}
+                        onClick={() => openEditModal(dept)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => { setDeleteId(major.id); setIsDeleteDialogOpen(true); }}
+                        onClick={() => { setDeleteId(dept.id); setIsDeleteDialogOpen(true); }}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -217,35 +203,19 @@ export default function MajorManagement() {
           </div>
         )}
       </div>
-      {/* Modal thêm/sửa ngành */}
+      {/* Modal thêm/sửa khoa */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{modalMode === 'add' ? 'Thêm ngành' : 'Cập nhật ngành'}</DialogTitle>
-            <DialogDescription>Điền thông tin ngành học vào form bên dưới.</DialogDescription>
+            <DialogTitle>{modalMode === 'add' ? 'Thêm khoa' : 'Cập nhật khoa'}</DialogTitle>
           </DialogHeader>
-          <div className="mb-4 space-y-4">
+          <div className="mb-4">
             <Input
-              placeholder="Tên ngành"
+              placeholder="Tên khoa"
               value={name}
               onChange={e => setName(e.target.value)}
               maxLength={100}
             />
-            <Select
-              value={departmentId}
-              onValueChange={v => setDepartmentId(v)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Chọn khoa" />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map(dept => (
-                  <SelectItem key={dept.id} value={String(dept.id)}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             {formError && <div className="text-red-500 text-sm mt-1">{formError}</div>}
           </div>
           <DialogFooter>
@@ -258,9 +228,9 @@ export default function MajorManagement() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Xác nhận xóa ngành</DialogTitle>
+            <DialogTitle>Xác nhận xóa khoa</DialogTitle>
           </DialogHeader>
-          <p>Bạn có chắc chắn muốn xóa ngành này không?</p>
+          <p>Bạn có chắc chắn muốn xóa khoa này không?</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Hủy</Button>
             <Button variant="destructive" onClick={handleDelete}>Xóa</Button>

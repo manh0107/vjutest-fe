@@ -30,9 +30,13 @@ import {
 import { ClassDetailModal } from './components/ClassDetailModal'
 import { CreateClassModal } from './components/CreateClassModal'
 import { ClassModal } from './components/ClassModal'
+import { majorService, Major } from '@/services/majorService'
+import { departmentService, Department } from '@/services/departmentService'
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([])
+  const [majorsList, setMajorsList] = useState<Major[]>([])
+  const [departmentsList, setDepartmentsList] = useState<Department[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -46,6 +50,7 @@ export default function ClassesPage() {
 
   useEffect(() => {
     fetchClasses()
+    fetchMajorsAndDepartments()
   }, [])
 
   const fetchClasses = async () => {
@@ -58,6 +63,19 @@ export default function ClassesPage() {
       setError('Không thể tải danh sách lớp học. Vui lòng kiểm tra kết nối hoặc thử lại sau.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchMajorsAndDepartments = async () => {
+    try {
+      const [majors, departments] = await Promise.all([
+        majorService.getAllMajors(),
+        departmentService.getAllDepartments()
+      ])
+      setMajorsList(majors)
+      setDepartmentsList(departments)
+    } catch (error) {
+      // ignore
     }
   }
 
@@ -174,9 +192,7 @@ export default function ClassesPage() {
                     onClick={() => handleViewClass(c)}
                   >
                     <TableCell className="font-medium">{c.id}</TableCell>
-                    <TableCell>
-                      {c.classCode}
-                    </TableCell>
+                    <TableCell>{c.classCode}</TableCell>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{c.createdByName || '-'}</TableCell>
                     <TableCell className="text-right">
@@ -239,6 +255,8 @@ export default function ClassesPage() {
           setSelectedClass(null)
         }}
         classData={selectedClass}
+        majorsList={majorsList}
+        departmentsList={departmentsList}
       />
 
       <CreateClassModal

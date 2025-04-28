@@ -55,41 +55,122 @@ export default function UserManagement() {
 
   const router = useRouter()
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
 
   const fetchUsers = async () => {
     try {
-      const data = await userService.getUsers()
-      console.log('Users data:', data)
-      setUsers(data)
+      const [usersData, currentUserData] = await Promise.all([
+        userService.getUsers(),
+        userService.getCurrentUser()
+      ]);
+      setUsers(usersData);
+      setCurrentUser(currentUserData);
     } catch (error) {
-      console.error('Lỗi khi lấy danh sách người dùng:', error)
-      toast.error('Không thể tải danh sách người dùng')
+      console.error('Error initializing:', error);
+      toast.error('Không thể tải dữ liệu');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleCreateUser = async (userData: Partial<User>) => {
+    if (!currentUser?.id) {
+      toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
+      return;
+    }
+
     try {
-      const newUser = await userService.createUser(userData)
+      const { department, major, ...rest } = userData;
+      
+      const getRoleId = (role: string | undefined) => {
+        switch(role) {
+          case 'ROLE_ADMIN': return 1;
+          case 'ROLE_TEACHER': return 2;
+          case 'ROLE_USER': return 3;
+          default: return 3;
+        }
+      };
+
+      const dataToSend = {
+        name: rest.name,
+        email: rest.email,
+        code: rest.code ? Number(rest.code) : undefined,
+        phoneNumber: rest.phoneNumber ? Number(rest.phoneNumber) : undefined,
+        password: rest.password,
+        gender: rest.gender,
+        image: rest.image || undefined,
+        isEnabled: rest.isEnabled === undefined ? true : rest.isEnabled,
+        department: department?.id ? { id: department.id, name: department.name } : undefined,
+        major: major?.id ? { id: major.id, name: major.name } : undefined,
+        role: { id: getRoleId(typeof rest.role === 'string' ? rest.role : '') }
+      }
+      
+      const newUser = await userService.createUser(dataToSend, currentUser.id)
       setUsers(prevUsers => [...prevUsers, newUser])
-      toast.success('Tạo người dùng thành công', {
-        description: `Đã tạo người dùng ${userData.name}`
-      })
+      toast.success('Tạo người dùng thành công')
       return true
     } catch (error: any) {
       console.error('Lỗi khi tạo người dùng:', error)
-      throw new Error(error.response?.data?.message || error.message || 'Không thể tạo người dùng')
+      
+      // Xử lý các loại lỗi cụ thể từ API
+      const errorMessage = error.response?.data?.message;
+      
+      if (errorMessage) {
+        // Xử lý các trường hợp lỗi cụ thể
+        if (errorMessage.includes('Email')) {
+          throw new Error(`Email ${userData.email} đã được sử dụng bởi người dùng khác. Vui lòng sử dụng email khác.`);
+        }
+        if (errorMessage.includes('Mã số')) {
+          throw new Error(`Mã số ${userData.code} đã tồn tại trong hệ thống. Vui lòng sử dụng mã số khác.`);
+        }
+        if (errorMessage.includes('Số điện thoại')) {
+          throw new Error(`Số điện thoại ${userData.phoneNumber} đã được đăng ký. Vui lòng sử dụng số điện thoại khác.`);
+        }
+        // Nếu là lỗi khác, trả về message gốc từ API
+        throw new Error(errorMessage);
+      }
+      
+      // Xử lý các lỗi HTTP status
+      if (error.response?.status === 400) {
+        throw new Error('Thông tin không hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc và định dạng dữ liệu.');
+      } else if (error.response?.status === 401) {
+        throw new Error('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
+      } else if (error.response?.status === 403) {
+        throw new Error('Bạn không có quyền thực hiện thao tác này.');
+      } else if (error.response?.status === 404) {
+        throw new Error('Không tìm thấy tài nguyên yêu cầu. Vui lòng thử lại.');
+      } else if (error.response?.status === 500) {
+        throw new Error('Lỗi hệ thống. Vui lòng thử lại sau hoặc liên hệ quản trị viên.');
+      }
+      
+      // Mặc định nếu không xác định được lỗi cụ thể
+      throw new Error('Không thể tạo người dùng. Vui lòng kiểm tra lại thông tin và thử lại.');
     }
   }
 
   const handleUpdateUser = async (userData: Partial<User>) => {
-    if (!selectedUser?.id) return
+    if (!selectedUser?.id || !currentUser?.id) return
     try {
-      const updatedUser = await userService.updateUser(selectedUser.id, userData)
+      const getRoleId = (role: string | undefined) => {
+        switch(role) {
+          case 'ROLE_ADMIN': return 1;
+          case 'ROLE_TEACHER': return 2;
+          case 'ROLE_USER': return 3;
+          default: return 3;
+        }
+      };
+      const { department, major, ...rest } = userData;
+      const dataToSend = {
+        ...rest,
+        department: department?.id ? { id: department.id, name: department.name } : undefined,
+        major: major?.id ? { id: major.id, name: major.name } : undefined,
+        role: { id: getRoleId(typeof rest.role === 'string' ? rest.role : '') }
+      };
+      const updatedUser = await userService.updateUser(selectedUser.id, dataToSend, currentUser.id)
       setUsers(prevUsers => prevUsers.map(user => 
         user.id === updatedUser.id ? updatedUser : user
       ))
@@ -103,22 +184,14 @@ export default function UserManagement() {
     }
   }
 
-  const handleDeleteUser = async () => {
-    if (!userToDelete?.id) return
+  const handleDeleteUser = async (userId: number) => {
     try {
-      await userService.deleteUser(userToDelete.id)
-      toast.success('Xóa người dùng thành công', {
-        description: `Đã xóa người dùng ${userToDelete.name}`
-      })
+      await userService.deleteUser(userId)
+      toast.success('Xóa người dùng thành công')
       fetchUsers()
-    } catch (error: any) {
-      console.error('Lỗi khi xóa người dùng:', error)
-      toast.error('Không thể xóa người dùng', {
-        description: error.response?.data?.message || error.message
-      })
-    } finally {
-      setIsDeleteDialogOpen(false)
-      setUserToDelete(null)
+    } catch (err: any) {
+      console.error('Error deleting user:', err)
+      toast.error(err.response?.data?.message || 'Không thể xóa người dùng')
     }
   }
 
@@ -329,63 +402,44 @@ export default function UserManagement() {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="mt-4">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  />
+        <div className="mt-4">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => handlePageChange(page)}
+                    isActive={currentPage === page}
+                  >
+                    {page}
+                  </PaginationLink>
                 </PaginationItem>
-                
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          isActive={currentPage === page}
-                          onClick={() => handlePageChange(page)}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === currentPage - 2 ||
-                    page === currentPage + 2
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                })}
+              ))}
 
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       </CardContent>
 
+      {/* Modals */}
       <UserModal
         isOpen={isModalOpen}
         onClose={() => {
-          setIsModalOpen(false)
-          setSelectedUser(null)
+          setIsModalOpen(false);
+          setTimeout(() => setSelectedUser(null), 300);
         }}
         onSubmit={handleModalSubmit}
         user={selectedUser || undefined}
@@ -411,8 +465,11 @@ export default function UserManagement() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-500 hover:bg-red-600">
-              Xóa
+            <AlertDialogAction onClick={() => {
+              handleDeleteUser(userToDelete?.id || 0)
+              setIsDeleteDialogOpen(false)
+            }}>
+              Xác nhận
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { User as UserType } from './types'
+import type { User } from './types'
 import { jwtDecode } from 'jwt-decode'
 
 const API_URL = 'http://localhost:8080'
@@ -34,7 +34,7 @@ interface JwtPayload {
 export interface LoginResponse {
   token: string
   message: string
-  user?: UserType
+  user?: User
 }
 
 export interface LoginCredentials {
@@ -154,53 +154,69 @@ export const authService = {
 
   async refreshToken(): Promise<string> {
     try {
-      const response = await axiosInstance.post<LoginResponse>('/auth/refresh-token', null, {
-        withCredentials: true
-      })
-
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token)
-        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`
-        return response.data.token
+      // Nếu đã có một promise refresh token đang chạy, trả về promise đó
+      if (refreshPromise) {
+        return refreshPromise;
       }
-      throw new Error('Không nhận được token mới')
+
+      // Tạo promise mới cho refresh token
+      refreshPromise = (async () => {
+        try {
+          const response = await axiosInstance.post<LoginResponse>('/auth/refresh-token', null, {
+            withCredentials: true
+          });
+
+          if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+            return response.data.token;
+          }
+          throw new Error('Không nhận được token mới');
+        } catch (error: any) {
+          console.error('Lỗi refresh token:', error.message);
+          // Xóa token cũ và chuyển hướng về trang login
+          this.logout();
+          window.location.href = '/login';
+          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } finally {
+          // Reset promise khi hoàn thành
+          refreshPromise = null;
+        }
+      })();
+
+      return refreshPromise;
     } catch (error: any) {
-      console.error('Lỗi refresh token:', error.message)
-      this.logout()
-      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+      console.error('Lỗi refresh token:', error.message);
+      this.logout();
+      window.location.href = '/login';
+      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
   },
 
   startRefreshInterval(): void {
-    if (refreshInterval) {
-      clearInterval(refreshInterval)
-    }
+    // Dừng interval cũ nếu có
+    this.stopRefreshInterval();
     
+    // Bắt đầu interval mới
     refreshInterval = setInterval(async () => {
       try {
-        const token = this.getToken()
-        if (!token || this.isTokenExpired(token)) {
-          console.log('Token sắp hết hạn, bắt đầu làm mới...')
-          await this.refreshToken()
+        const token = this.getToken();
+        if (token && this.isTokenExpired(token)) {
+          await this.refreshToken();
         }
       } catch (error) {
-        console.error('Lỗi khi tự động làm mới token:', error)
-        this.stopRefreshInterval()
+        console.error('Lỗi trong refresh interval:', error);
+        this.stopRefreshInterval();
+        this.logout();
+        window.location.href = '/login';
       }
-    }, REFRESH_INTERVAL)
-
-    // Thêm listener để dừng interval khi tab/window đóng
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
-        this.stopRefreshInterval()
-      })
-    }
+    }, REFRESH_INTERVAL);
   },
 
   stopRefreshInterval(): void {
     if (refreshInterval) {
-      clearInterval(refreshInterval)
-      refreshInterval = null
+      clearInterval(refreshInterval);
+      refreshInterval = null;
     }
   },
 

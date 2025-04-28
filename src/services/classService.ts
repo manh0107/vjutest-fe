@@ -86,6 +86,9 @@ export interface Class {
     description: string
   }[]
   joinRequests: JoinRequest[] | null
+  visibility?: string
+  departmentIds?: number
+  majorIds?: number
 }
 
 export interface CreateClassData {

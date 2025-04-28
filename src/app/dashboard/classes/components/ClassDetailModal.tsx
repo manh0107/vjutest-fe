@@ -31,9 +31,11 @@ interface ClassDetailModalProps {
   isOpen: boolean
   onClose: () => void
   classData: Class | null
+  majorsList: { id: number; name: string }[]
+  departmentsList: { id: number; name: string }[]
 }
 
-export function ClassDetailModal({ isOpen, onClose, classData }: ClassDetailModalProps) {
+export function ClassDetailModal({ isOpen, onClose, classData, majorsList = [], departmentsList = [] }: ClassDetailModalProps) {
   if (!classData) return null
 
   console.log('Class Data:', classData)
@@ -152,7 +154,12 @@ export function ClassDetailModal({ isOpen, onClose, classData }: ClassDetailModa
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-1">Mô tả</div>
-                  <div className="text-sm">{classData.description || 'Không có mô tả'}</div>
+                  <div className="text-xs">{classData.description || 'Không có mô tả'}</div>
+                  {classData.visibility === 'PUBLIC' && (
+                    <div className="mt-2">
+                      <span className="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">Phạm vi: Toàn trường</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -174,6 +181,10 @@ export function ClassDetailModal({ isOpen, onClose, classData }: ClassDetailModa
                 <TabsTrigger value="exams" className="flex items-center gap-2">
                   <ClipboardList className="h-4 w-4" />
                   Bài kiểm tra
+                </TabsTrigger>
+                <TabsTrigger value="info" className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Khoa & Ngành
                 </TabsTrigger>
                 <TabsTrigger value="requests" className="flex items-center gap-2">
                   <UserCog className="h-4 w-4" />
@@ -449,6 +460,56 @@ export function ClassDetailModal({ isOpen, onClose, classData }: ClassDetailModa
                             Chưa có bài kiểm tra nào trong lớp
                           </div>
                         )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="info" className="m-0">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base font-medium">Danh sách khoa & ngành</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">Danh sách khoa</div>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.isArray(classData.departmentIds)
+                              ? classData.departmentIds.length > 0
+                                ? classData.departmentIds.map((id: number) => {
+                                    const dept = departmentsList.find(d => d.id === id);
+                                    return <span key={id} className="text-sm font-normal">{dept ? dept.name : `#${id}`}</span>;
+                                  })
+                                : <span className="text-xs text-gray-400">Không có khoa nào</span>
+                              : classData.departmentIds
+                                ? (() => {
+                                    const dept = departmentsList.find(d => d.id === classData.departmentIds);
+                                    return <span className="text-sm font-normal">{dept ? dept.name : `#${classData.departmentIds}`}</span>;
+                                  })()
+                                : <span className="text-xs text-gray-400">Không có khoa nào</span>
+                            }
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">Danh sách ngành</div>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.isArray(classData.majorIds)
+                              ? classData.majorIds.length > 0
+                                ? classData.majorIds.map((id: number) => {
+                                    const major = majorsList.find(m => m.id === id);
+                                    return <span key={id} className="text-sm font-normal">{major ? major.name : `#${id}`}</span>;
+                                  })
+                                : <span className="text-xs text-gray-400">Không có ngành nào</span>
+                              : classData.majorIds
+                                ? (() => {
+                                    const major = majorsList.find(m => m.id === classData.majorIds);
+                                    return <span className="text-sm font-normal">{major ? major.name : `#${classData.majorIds}`}</span>;
+                                  })()
+                                : <span className="text-xs text-gray-400">Không có ngành nào</span>
+                            }
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

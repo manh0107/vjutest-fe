@@ -22,11 +22,30 @@ import {
 import { User } from '@/services/types'
 import { ImageIcon, Upload } from 'lucide-react'
 import React from 'react'
+import { useUserForm } from '@/hooks/useUserForm'
+import { departmentService } from '@/services/departmentService'
+import { majorService } from '@/services/majorService'
+
+interface Department {
+  id: number;
+  name: string;
+}
+
+interface Major {
+  id: number;
+  name: string;
+  departmentId: number;
+}
+
+// Extended User type to include form fields
+interface UserFormData extends Partial<User> {
+  password?: string;
+}
 
 interface UserModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (user: Partial<User>) => Promise<void>
+  onSubmit: (user: UserFormData) => Promise<void>
   user?: User
   title: string
 }
@@ -37,7 +56,8 @@ interface ValidationErrors {
   password?: string;
   code?: string;
   phoneNumber?: string;
-  className?: string;
+  department?: string;
+  major?: string;
 }
 
 const roleOptions = [
@@ -52,116 +72,52 @@ const genderOptions = [
   { value: 'OTHER', label: 'Khác' }
 ] as const
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const MAX_BASE64_LENGTH = 500 * 1024; // 500KB
-const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
 export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalProps) {
-  const [formData, setFormData] = useState<Partial<User>>({
-    name: '',
-    email: '',
-    code: '',
-    phoneNumber: '' as any,
-    role: 'ROLE_USER',
-    isEnabled: true,
-    password: '',
-    className: '',
-    gender: 'MALE',
-    image: ''
-  })
+  const { formData, setFormData, validationErrors, setValidationErrors, validateForm, resetForm } = useUserForm(user)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      code: '',
-      phoneNumber: '' as any,
-      role: 'ROLE_USER',
-      isEnabled: true,
-      password: '',
-      className: '',
-      gender: 'MALE',
-      image: ''
-    })
-    setImagePreview(null)
-    setError(null)
-    setValidationErrors({})
-  }
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [majors, setMajors] = useState<Major[]>([])
+  const [filteredMajors, setFilteredMajors] = useState<Major[]>([])
 
   useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        code: user.code || '',
-        phoneNumber: user.phoneNumber?.toString() || '',
-        role: typeof user.role === 'string' ? user.role : user.role?.name || 'ROLE_USER',
-        isEnabled: user.isEnabled ?? true,
-        password: '',
-        className: user.className || '',
-        gender: user.gender || 'MALE',
-        image: user.image || ''
-      })
-      if (user.image) {
-        setImagePreview(user.image)
+    const loadDepartmentsAndMajors = async () => {
+      try {
+        const [depsData, majorsData] = await Promise.all([
+          departmentService.getAllDepartments(),
+          majorService.getAllMajors()
+        ]);
+        setDepartments(depsData);
+        setMajors(majorsData);
+      } catch (error) {
+        console.error('Error loading departments and majors:', error);
+        setError('Không thể tải danh sách khoa và ngành');
       }
+    };
+
+    if (isOpen) {
+      loadDepartmentsAndMajors();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (formData.department?.id) {
+      setFilteredMajors(majors.filter(major => major.departmentId === formData.department?.id));
     } else {
-      resetForm()
+      setFilteredMajors([]);
     }
-  }, [user])
-
-  const validateForm = (): boolean => {
-    const errors: ValidationErrors = {}
-
-    // Validate name
-    if (!formData.name?.trim()) {
-      errors.name = 'Tên không được để trống'
-    }
-
-    // Validate email
-    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
-    if (!formData.email?.trim()) {
-      errors.email = 'Email không được để trống'
-    } else if (!emailRegex.test(formData.email)) {
-      errors.email = 'Email không hợp lệ'
-    }
-
-    // Validate password for new user
-    if (!user && (!formData.password || formData.password.length < 8 || formData.password.length > 25)) {
-      errors.password = 'Mật khẩu phải từ 8-25 ký tự'
-    }
-
-    // Validate code
-    if (!formData.code?.toString().trim()) {
-      errors.code = 'Mã số không được để trống'
-    } else if (formData.code.toString().length !== 8) {
-      errors.code = 'Mã số phải đúng 8 ký tự'
-    }
-
-    // Validate phone number
-    if (!formData.phoneNumber?.toString().trim()) {
-      errors.phoneNumber = 'Số điện thoại không được để trống'
-    } else if (formData.phoneNumber.toString().length !== 10) {
-      errors.phoneNumber = 'Số điện thoại phải đúng 10 ký tự'
-    }
-
-    // Validate class name
-    if (!formData.className?.trim()) {
-      errors.className = 'Lớp không được để trống'
-    }
-
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }
+  }, [formData.department, majors]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setValidationErrors({})
     
     if (!validateForm()) {
       return
@@ -170,98 +126,79 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
     setIsSubmitting(true)
 
     try {
-      // Validate và chuẩn hóa dữ liệu trước khi gửi
-      const submissionData = {
-        ...formData,
-        className: formData.className?.toString().trim() || undefined,
-        gender: formData.gender || undefined,
-        phoneNumber: formData.phoneNumber ? parseInt(formData.phoneNumber.toString()) : undefined
-      }
-
-      await onSubmit(submissionData)
-      // Chỉ reset form và đóng modal khi thành công
+      await onSubmit(formData)
       resetForm()
       onClose()
     } catch (err: any) {
-      // Hiển thị lỗi từ server hoặc lỗi mặc định
-      const errorMessage = err.message || 'Có lỗi xảy ra khi lưu thông tin'
-      setError(errorMessage)
-      // Không đóng modal và giữ nguyên dữ liệu đã nhập
+      const errorMessage = err.message;
+      
+      // Xử lý các loại lỗi validation cụ thể
+      if (errorMessage.includes('Email đã tồn tại')) {
+        setValidationErrors(prev => ({
+          ...prev,
+          email: 'Email này đã được sử dụng, vui lòng sử dụng email khác'
+        }))
+      } else if (errorMessage.includes('Mã số đã tồn tại')) {
+        setValidationErrors(prev => ({
+          ...prev,
+          code: 'Mã số này đã được sử dụng, vui lòng chọn mã số khác'
+        }))
+      } else if (errorMessage.includes('Mật khẩu không đủ mạnh')) {
+        setValidationErrors(prev => ({
+          ...prev,
+          password: 'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số'
+        }))
+      } else if (errorMessage.includes('Số điện thoại không hợp lệ')) {
+        setValidationErrors(prev => ({
+          ...prev,
+          phoneNumber: 'Số điện thoại không hợp lệ, vui lòng kiểm tra lại'
+        }))
+      } else if (errorMessage.includes('Email không hợp lệ')) {
+        setValidationErrors(prev => ({
+          ...prev,
+          email: 'Email không hợp lệ, vui lòng kiểm tra lại định dạng'
+        }))
+      } else if (errorMessage.includes('Tên không hợp lệ')) {
+        setValidationErrors(prev => ({
+          ...prev,
+          name: 'Tên không được để trống và phải có ít nhất 2 ký tự'
+        }))
+      } else {
+        // Hiển thị thông báo lỗi chung nếu không phải lỗi validation
+        setError(errorMessage)
+      }
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const getRoleLabel = (roleValue: string) => {
-    return roleOptions.find(role => role.value === roleValue)?.label || roleValue
-  }
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > MAX_FILE_SIZE) {
-      setError('Kích thước file không được vượt quá 2MB')
-      return
-    }
-
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      setError('Chỉ chấp nhận file ảnh định dạng: JPG, PNG, GIF, WEBP')
+      setError('Chỉ chấp nhận file ảnh định dạng JPG, PNG, GIF hoặc WebP')
       return
     }
 
-    try {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64String = reader.result as string
-        if (base64String.length > MAX_BASE64_LENGTH) {
-          setError('Ảnh quá lớn, vui lòng chọn ảnh nhỏ hơn')
-          return
-        }
-        setImagePreview(base64String)
-        setFormData({ ...formData, image: base64String })
-        setError(null)
-      }
-      reader.onerror = () => {
-        setError('Có lỗi khi đọc file ảnh')
-      }
-      reader.readAsDataURL(file)
-    } catch (err) {
-      setError('Có lỗi khi xử lý ảnh')
+    if (file.size > MAX_FILE_SIZE) {
+      setError('Kích thước file không được vượt quá 5MB')
+      return
     }
-  }
 
-  const handleImageUrlChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value
-    setFormData({ ...formData, image: url })
-    
-    if (url) {
-      try {
-        const response = await fetch(url)
-        if (!response.ok) throw new Error('Không thể tải ảnh từ URL')
-        
-        const contentType = response.headers.get('content-type')
-        if (!contentType || !ALLOWED_FILE_TYPES.includes(contentType)) {
-          throw new Error('URL không phải là ảnh hợp lệ')
-        }
-
-        setImagePreview(url)
-        setError(null)
-      } catch (err: any) {
-        setError('URL ảnh không hợp lệ hoặc không thể truy cập')
-        setImagePreview(null)
-      }
-    } else {
-      setImagePreview(null)
-      setError(null)
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const result = reader.result as string
+      setFormData(prev => ({ ...prev, image: result }))
+      setImagePreview(result)
     }
+    reader.readAsDataURL(file)
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
-        resetForm()
-        onClose()
+        onClose();
       }
     }}>
       <DialogContent className="sm:max-w-[500px]">
@@ -279,258 +216,298 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-6">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right font-medium">
-                Tên
-              </Label>
-              <div className="col-span-3">
+          <div className="grid grid-cols-2 gap-6">
+            {/* Cột trái */}
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Họ và tên</Label>
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className={validationErrors.name ? "border-red-500" : ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   required
                   disabled={isSubmitting}
                 />
                 {validationErrors.name && (
-                  <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>
+                  <p className="text-sm text-red-500">{validationErrors.name}</p>
                 )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="code">Mã số</Label>
+                <Input
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Nhập mã số"
+                  value={formData.code || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    setFormData(prev => ({ ...prev, code: value ? parseInt(value) : undefined }));
+                  }}
+                  required
+                  disabled={isSubmitting}
+                />
+                {validationErrors.code && (
+                  <p className="text-sm text-red-500">{validationErrors.code}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="password">Mật khẩu</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                  required={!user}
+                  disabled={isSubmitting}
+                  placeholder={user ? "Để trống nếu không muốn thay đổi" : ""}
+                />
+                {validationErrors.password && (
+                  <p className="text-sm text-red-500">{validationErrors.password}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Vai trò</Label>
+                <Select
+                  value={(() => {
+                    if (typeof formData.role === 'string') return formData.role;
+                    if (typeof formData.role === 'object' && formData.role?.id) {
+                      switch (formData.role.id) {
+                        case 1: return 'ROLE_ADMIN';
+                        case 2: return 'ROLE_TEACHER';
+                        case 3: return 'ROLE_USER';
+                        default: return '';
+                      }
+                    }
+                    return '';
+                  })()}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right font-medium">
-                Email
-              </Label>
-              <div className="col-span-3">
+            {/* Cột phải */}
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className={validationErrors.email ? "border-red-500" : ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   required
                   disabled={isSubmitting}
                 />
                 {validationErrors.email && (
-                  <p className="text-red-500 text-sm mt-1">{validationErrors.email}</p>
+                  <p className="text-sm text-red-500">{validationErrors.email}</p>
                 )}
               </div>
-            </div>
 
-            {!user && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="password" className="text-right font-medium">
-                  Mật khẩu
-                </Label>
-                <div className="col-span-3">
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className={validationErrors.password ? "border-red-500" : ""}
-                    required={!user}
-                    disabled={isSubmitting}
-                    placeholder={user ? 'Để trống nếu không đổi mật khẩu' : 'Nhập mật khẩu cho người dùng mới'}
-                  />
-                  {validationErrors.password && (
-                    <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="code" className="text-right font-medium">
-                Mã số
-              </Label>
-              <div className="col-span-3">
-                <Input
-                  id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className={validationErrors.code ? "border-red-500" : ""}
-                  required
+              <div className="grid gap-2">
+                <Label>Khoa</Label>
+                <Select
+                  value={formData.department?.id?.toString() || ""}
+                  onValueChange={(value) => {
+                    const departmentId = parseInt(value);
+                    const selectedDepartment = departments.find(d => d.id === departmentId);
+                    setFormData(prev => ({
+                      ...prev,
+                      department: selectedDepartment ? { id: departmentId, name: selectedDepartment.name } : undefined,
+                      major: undefined // Reset major when department changes
+                    }));
+                  }}
                   disabled={isSubmitting}
-                  maxLength={8}
-                />
-                {validationErrors.code && (
-                  <p className="text-red-500 text-sm mt-1">{validationErrors.code}</p>
-                )}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn khoa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map(dept => (
+                      <SelectItem key={dept.id} value={dept.id.toString()}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phoneNumber" className="text-right font-medium">
-                Số điện thoại
-              </Label>
-              <div className="col-span-3">
+              <div className="grid gap-2">
+                <Label>Ngành</Label>
+                <Select
+                  value={formData.major?.id?.toString() || ""}
+                  onValueChange={(value) => {
+                    const majorId = parseInt(value);
+                    const selectedMajor = majors.find(m => m.id === majorId);
+                    setFormData(prev => ({
+                      ...prev,
+                      major: selectedMajor ? { id: majorId, name: selectedMajor.name } : undefined
+                    }));
+                  }}
+                  disabled={isSubmitting || !formData.department}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={formData.department ? "Chọn ngành" : "Vui lòng chọn khoa trước"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredMajors.map(major => (
+                      <SelectItem key={major.id} value={major.id.toString()}>
+                        {major.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="phoneNumber">Số điện thoại</Label>
                 <Input
                   id="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                  className={validationErrors.phoneNumber ? "border-red-500" : ""}
-                  required
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Nhập số điện thoại"
+                  value={formData.phoneNumber || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    setFormData(prev => ({ ...prev, phoneNumber: value ? parseInt(value) : undefined }));
+                  }}
                   disabled={isSubmitting}
-                  maxLength={10}
-                  type="tel"
                 />
                 {validationErrors.phoneNumber && (
-                  <p className="text-red-500 text-sm mt-1">{validationErrors.phoneNumber}</p>
+                  <p className="text-sm text-red-500">{validationErrors.phoneNumber}</p>
                 )}
               </div>
-            </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="className" className="text-right font-medium">
-                Lớp
-              </Label>
-              <div className="col-span-3">
-                <Input
-                  id="className"
-                  value={formData.className || ''}
-                  onChange={(e) => setFormData({ ...formData, className: e.target.value })}
-                  className={validationErrors.className ? "border-red-500" : ""}
-                  required
+              <div className="grid gap-2">
+                <Label>Giới tính</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
                   disabled={isSubmitting}
-                />
-                {validationErrors.className && (
-                  <p className="text-red-500 text-sm mt-1">{validationErrors.className}</p>
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {genderOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Trạng thái</Label>
+                <Select
+                  value={formData.isEnabled?.toString() || "true"}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, isEnabled: value === "true" }))}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Hoạt động</SelectItem>
+                    <SelectItem value="false">Vô hiệu</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Phần upload ảnh */}
+          <div className="grid gap-4">
+            <Label>Ảnh đại diện</Label>
+            
+            {/* Tùy chọn nhập URL */}
+            <div className="grid gap-2">
+              <Label className="text-sm text-gray-500">Nhập URL ảnh</Label>
+              <Input
+                type="url"
+                placeholder="https://example.com/image.jpg"
+                value={formData.image}
+                onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Hoặc</span>
+              </div>
+            </div>
+
+            {/* Tùy chọn tải ảnh từ máy */}
+            <div className="flex items-center gap-4">
+              <div className="relative w-24 h-24 border rounded-lg overflow-hidden">
+                {imagePreview || formData.image ? (
+                  <img
+                    src={imagePreview || formData.image}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                    <ImageIcon className="w-8 h-8 text-gray-400" />
+                  </div>
                 )}
               </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="gender" className="text-right font-medium">
-                Giới tính
-              </Label>
-              <Select
-                value={formData.gender || 'MALE'}
-                onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Chọn giới tính" />
-                </SelectTrigger>
-                <SelectContent>
-                  {genderOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role" className="text-right font-medium">
-                Vai trò
-              </Label>
-              <Select
-                value={formData.role?.toString()}
-                onValueChange={(value) => setFormData({ ...formData, role: value })}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Chọn vai trò">
-                    {formData.role && getRoleLabel(formData.role.toString())}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map(role => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {role.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right font-medium">
-                Trạng thái
-              </Label>
-              <Select
-                value={formData.isEnabled ? "active" : "inactive"}
-                onValueChange={(value) => setFormData({ ...formData, isEnabled: value === "active" })}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Hoạt động</SelectItem>
-                  <SelectItem value="inactive">Vô hiệu</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Phần upload ảnh chỉ hiển thị khi đang cập nhật người dùng */}
-            {user && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="image" className="text-right font-medium">
-                  Ảnh đại diện
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isSubmitting}
-                      className="flex items-center gap-2"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Tải ảnh lên
-                    </Button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  <Input
-                    id="imageUrl"
-                    type="url"
-                    value={formData.image}
-                    onChange={handleImageUrlChange}
-                    placeholder="Hoặc nhập URL ảnh"
-                    disabled={isSubmitting}
-                  />
-                  {imagePreview && (
-                    <div className="mt-2">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="h-20 w-20 rounded-full object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Tải ảnh từ máy
+                </Button>
+                <p className="text-xs text-gray-500">
+                  Định dạng: JPG, PNG, GIF, WebP. Tối đa 5MB
+                </p>
               </div>
-            )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </div>
           </div>
 
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
             >
               Hủy
             </Button>
-            <Button 
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isSubmitting ? 'Đang lưu...' : 'Lưu'}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Đang lưu...' : user ? 'Cập nhật' : 'Tạo mới'}
             </Button>
           </DialogFooter>
         </form>

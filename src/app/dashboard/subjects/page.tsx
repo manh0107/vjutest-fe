@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/pagination"
 import { ColumnDef } from "@tanstack/react-table"
 import { PencilIcon, TrashIcon } from "lucide-react"
+import { majorService, Major } from '@/services/majorService'
+import { departmentService, Department } from '@/services/departmentService'
 
 export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -55,6 +57,9 @@ export default function SubjectsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
 
+  const [majorsList, setMajorsList] = useState<Major[]>([])
+  const [departmentsList, setDepartmentsList] = useState<Department[]>([])
+
   const fetchSubjects = async () => {
     try {
       const data = await subjectService.getAllSubjects()
@@ -67,6 +72,22 @@ export default function SubjectsPage() {
 
   useEffect(() => {
     fetchSubjects()
+  }, [])
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [majors, departments] = await Promise.all([
+          majorService.getAllMajors(),
+          departmentService.getAllDepartments()
+        ])
+        setMajorsList(majors)
+        setDepartmentsList(departments)
+      } catch (err) {
+        // handle error
+      }
+    }
+    fetchAll()
   }, [])
 
   const handleCreateSubject = async (data: CreateSubjectData) => {
@@ -371,6 +392,8 @@ export default function SubjectsPage() {
           setSelectedSubject(null)
         }}
         subject={selectedSubject}
+        majorsList={majorsList}
+        departmentsList={departmentsList}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

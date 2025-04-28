@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import axios from 'axios'
+import { majorService, Major } from '@/services/majorService'
+import { departmentService, Department } from '@/services/departmentService'
+import { MultiSelect } from '@/components/ui/multiselect'
 
 interface CreateClassModalProps {
   isOpen: boolean
@@ -16,53 +19,97 @@ interface CreateClassModalProps {
   onSuccess: () => void
 }
 
+interface FormData {
+  name: string
+  classCode: string
+  description: string
+  visibility: 'PUBLIC' | 'DEPARTMENT' | 'MAJOR'
+  departmentIds: number[]
+  majorIds: number[]
+}
+
 export function CreateClassModal({ isOpen, onClose, onSuccess }: CreateClassModalProps) {
   const { user } = useAuth()
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     classCode: '',
-    description: ''
+    description: '',
+    visibility: 'PUBLIC',
+    departmentIds: [],
+    majorIds: []
   })
+  const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([])
+  const [selectedMajorIds, setSelectedMajorIds] = useState<string[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [majors, setMajors] = useState<Major[]>([])
+  const [filteredMajors, setFilteredMajors] = useState<Major[]>([])
   const [errors, setErrors] = useState<{
     name?: string;
     classCode?: string;
     description?: string;
+    departmentIds?: string;
+    majorIds?: string;
     server?: string;
   }>({})
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [majorsData, departmentsData] = await Promise.all([
+        majorService.getAllMajors(),
+        departmentService.getAllDepartments()
+      ])
+      setMajors(majorsData)
+      setDepartments(departmentsData)
+    }
+    fetchData()
+  }, [])
+
+  useEffect(() => {
+    if (formData.visibility === 'MAJOR' && selectedDepartmentIds.length > 0) {
+      const filtered = majors.filter(major => 
+        selectedDepartmentIds.includes(major.departmentId.toString())
+      )
+      setFilteredMajors(filtered)
+    } else {
+      setFilteredMajors([])
+    }
+  }, [selectedDepartmentIds, majors, formData.visibility])
+
+  const handleVisibilityChange = (value: FormData['visibility']) => {
+    setFormData(prev => ({...prev, visibility: value}))
+    setSelectedDepartmentIds([])
+    setSelectedMajorIds([])
+  }
 
   const validateForm = () => {
     const newErrors: typeof errors = {}
     let isValid = true
 
-    // Validate name
     if (!formData.name.trim()) {
       newErrors.name = 'Tên lớp học không được để trống'
       isValid = false
-    } else if (formData.name.length < 3) {
-      newErrors.name = 'Tên lớp học phải có ít nhất 3 ký tự'
-      isValid = false
-    } else if (formData.name.length > 100) {
-      newErrors.name = 'Tên lớp học không được vượt quá 100 ký tự'
-      isValid = false
     }
 
-    // Validate class code
     if (!formData.classCode.trim()) {
       newErrors.classCode = 'Mã lớp học không được để trống'
       isValid = false
-    } else if (!/^[a-zA-Z0-9-]+$/.test(formData.classCode)) {
-      newErrors.classCode = 'Mã lớp học chỉ được chứa chữ cái, số và dấu gạch ngang'
-      isValid = false
-    } else if (formData.classCode.length > 20) {
-      newErrors.classCode = 'Mã lớp học không được vượt quá 20 ký tự'
+    }
+
+    if (formData.visibility === 'DEPARTMENT' && selectedDepartmentIds.length === 0) {
+      newErrors.departmentIds = 'Vui lòng chọn ít nhất một khoa'
       isValid = false
     }
 
-    // Validate description
-    if (formData.description && formData.description.length > 500) {
-      newErrors.description = 'Mô tả không được vượt quá 500 ký tự'
-      isValid = false
+    if (formData.visibility === 'MAJOR') {
+      if (selectedDepartmentIds.length === 0) {
+        newErrors.departmentIds = 'Vui lòng chọn ít nhất một khoa'
+        isValid = false
+      }
+      if (selectedMajorIds.length === 0) {
+        newErrors.majorIds = 'Vui lòng chọn ít nhất một ngành'
+        isValid = false
+      }
     }
 
     setErrors(newErrors)
@@ -79,19 +126,30 @@ export function CreateClassModal({ isOpen, onClose, onSuccess }: CreateClassModa
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
+      console.log('Token:', token) // Debug token
+      
       if (!token) {
         throw new Error('Vui lòng đăng nhập lại')
       }
 
+      const payload = {
+        ...formData,
+        departmentIds: selectedDepartmentIds.map(Number),
+        majorIds: selectedMajorIds.map(Number)
+      }
+      console.log('Payload:', payload) // Debug payload
+
       const response = await axios.post(
-        `http://localhost:8080/classes/create?userId=${user?.id}`, 
-        formData,
+        `http://localhost:8080/classes/create?userId=${user?.id}`,
+        payload,
         {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         }
       )
+      console.log('Response:', response) // Debug response
 
       toast.success('Tạo lớp học thành công', {
         description: `Đã tạo lớp học "${formData.name}"`
@@ -101,9 +159,11 @@ export function CreateClassModal({ isOpen, onClose, onSuccess }: CreateClassModa
     } catch (error: any) {
       console.error('Error creating class:', error)
       console.error('Error response:', error.response?.data)
+      console.error('Error headers:', error.response?.headers) // Debug headers
+      console.error('Error config:', error.config) // Debug request config
+      
       const errorMessage = error.response?.data?.message || error.message
       
-      // Handle specific error cases
       if (error.response?.status === 400) {
         if (errorMessage.includes('classCode')) {
           setErrors({
@@ -123,7 +183,7 @@ export function CreateClassModal({ isOpen, onClose, onSuccess }: CreateClassModa
         }
       } else if (error.response?.status === 403) {
         toast.error('Không có quyền truy cập', {
-          description: 'Bạn không có quyền tạo lớp học mới'
+          description: 'Bạn không có quyền tạo lớp học mới. Vui lòng kiểm tra lại token hoặc đăng nhập lại.'
         })
       } else {
         toast.error('Có lỗi xảy ra', {
@@ -204,6 +264,62 @@ export function CreateClassModal({ isOpen, onClose, onSuccess }: CreateClassModa
               {formData.description.length}/500 ký tự
             </p>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="visibility">Phạm vi truy cập</Label>
+            <select
+              id="visibility"
+              name="visibility"
+              value={formData.visibility}
+              onChange={(e) => handleVisibilityChange(e.target.value as FormData['visibility'])}
+              className="w-full p-2 border rounded"
+            >
+              <option value="PUBLIC">Toàn trường</option>
+              <option value="DEPARTMENT">Theo khoa</option>
+              <option value="MAJOR">Theo ngành</option>
+            </select>
+          </div>
+          {formData.visibility === 'DEPARTMENT' && (
+            <div className="space-y-2">
+              <Label>Khoa</Label>
+              <MultiSelect
+                options={departments.map(d => ({ value: d.id.toString(), label: d.name }))}
+                selected={selectedDepartmentIds}
+                onChange={setSelectedDepartmentIds}
+                placeholder="Chọn khoa"
+              />
+              {errors.departmentIds && (
+                <p className="text-sm text-red-500">{errors.departmentIds}</p>
+              )}
+            </div>
+          )}
+          {formData.visibility === 'MAJOR' && (
+            <>
+              <div className="space-y-2">
+                <Label>Khoa</Label>
+                <MultiSelect
+                  options={departments.map(d => ({ value: d.id.toString(), label: d.name }))}
+                  selected={selectedDepartmentIds}
+                  onChange={setSelectedDepartmentIds}
+                  placeholder="Chọn khoa"
+                />
+                {errors.departmentIds && (
+                  <p className="text-sm text-red-500">{errors.departmentIds}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Ngành</Label>
+                <MultiSelect
+                  options={filteredMajors.map(m => ({ value: m.id.toString(), label: m.name }))}
+                  selected={selectedMajorIds}
+                  onChange={setSelectedMajorIds}
+                  placeholder="Chọn ngành"
+                />
+                {errors.majorIds && (
+                  <p className="text-sm text-red-500">{errors.majorIds}</p>
+                )}
+              </div>
+            </>
+          )}
           {errors.server && (
             <p className="text-sm text-red-500 mt-2">{errors.server}</p>
           )}

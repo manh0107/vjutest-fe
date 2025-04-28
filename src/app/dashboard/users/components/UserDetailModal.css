@@ -1,0 +1,151 @@
+.user-detail-modal .ant-modal-content {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.user-detail-modal .ant-modal-header {
+  margin: 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.user-detail-modal .ant-modal-body {
+  padding: 24px;
+}
+
+.user-detail-modal .ant-tabs-nav {
+  margin-bottom: 24px !important;
+}
+
+.user-detail-modal .ant-tabs-tab {
+  padding: 12px 16px !important;
+}
+
+.user-detail-modal .ant-tabs-tab-active {
+  background: #f8fafc;
+  border-radius: 8px 8px 0 0;
+}
+
+.user-detail-modal .ant-avatar {
+  border: 4px solid #f0f0f0;
+}
+
+.user-detail-modal .info-section {
+  background: #fafafa;
+  padding: 24px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.user-detail-modal .ant-table-wrapper {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.user-detail-modal .ant-table {
+  background: white;
+}
+
+.user-detail-modal .ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.user-detail-modal .ant-tag {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-weight: 500;
+}
+
+.user-detail-modal .info-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.user-detail-modal .info-item:hover {
+  background: #f5f5f5;
+}
+
+.user-detail-modal .info-item .anticon {
+  font-size: 20px;
+  color: #4b5563;
+}
+
+.user-detail-modal .section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.user-detail-modal .custom-table .ant-table {
+  background: transparent;
+}
+
+.user-detail-modal .custom-table .ant-table-thead > tr > th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+.user-detail-modal .custom-table .ant-table-tbody > tr:hover > td {
+  background: #f1f5f9;
+}
+
+.user-detail-modal .custom-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.user-detail-modal .custom-table .ant-pagination {
+  margin: 16px;
+}
+
+.user-detail-modal .ant-tabs-nav-list {
+  width: 100%;
+  display: flex;
+}
+
+.user-detail-modal .ant-tabs-tab {
+  flex: 1;
+  justify-content: center;
+  margin: 0 !important;
+}
+
+.user-detail-modal .ant-tabs-ink-bar {
+  background: #1890ff;
+}
+
+.user-detail-modal .statistic-card {
+  background: white;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.user-detail-modal .table-section {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  margin-top: 1.5rem;
+}
+
+.user-detail-modal .table-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+} 

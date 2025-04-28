@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { format } from 'date-fns'
@@ -25,6 +24,26 @@ import { Separator } from "@/components/ui/separator"
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Modal, Table, Tabs, Tag, Avatar, Tooltip, Row, Col, Typography } from 'antd'
+import type { TabsProps } from 'antd'
+import { 
+  UserOutlined, 
+  MailOutlined, 
+  PhoneOutlined, 
+  IdcardOutlined,
+  BankOutlined,
+  TeamOutlined,
+  BookOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  FileTextOutlined,
+  QuestionCircleOutlined,
+  InboxOutlined
+} from '@ant-design/icons'
+import './UserDetailModal.css'
+
+const { TabPane } = Tabs
+const { Title, Text } = Typography
 
 interface UserDetailModalProps {
   user: User | null;
@@ -34,9 +53,14 @@ interface UserDetailModalProps {
 
 interface ClassRequest {
   id: number
-  className: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  name: string
+  classCode: string
+  description?: string
   createdAt: string
+  departmentName?: string
+  majorName?: string
+  createdById: number
+  createdByName: string
 }
 
 interface UserAnswer {
@@ -56,21 +80,29 @@ interface Class {
 interface Exam {
   id: number
   name: string
-  subject: string
+  subjectName: string
+  duration: number
   createdAt: string
+  isPublic: boolean
+  maxScore: number
 }
 
 interface Subject {
   id: number
   name: string
   code: string
+  description: string
+  createdAt: string
 }
 
 interface Question {
   id: number
   content: string
-  subject: string
+  type: string
+  difficulty: string
   createdAt: string
+  point: number
+  chapterName?: string
 }
 
 const getRoleName = (role: any): string => {
@@ -89,37 +121,67 @@ const getRoleName = (role: any): string => {
   return roleMap[role.name] || role.name;
 };
 
-const InfoItem = ({ label, value }: { label: string; value: string | number | null | undefined }) => (
-  <div className="space-y-1">
-    <p className="text-sm text-muted-foreground">{label}</p>
-    <p className="font-medium">{value?.toString() || 'N/A'}</p>
+const getRoleColor = (role: string): string => {
+  switch (role) {
+    case 'ROLE_ADMIN':
+    case 'admin':
+      return '#f50';
+    case 'ROLE_TEACHER':
+    case 'teacher':
+      return '#108ee9';
+    default:
+      return '#87d068';
+  }
+};
+
+const InfoItem = ({ 
+  icon, 
+  label, 
+  value, 
+  tooltip 
+}: { 
+  icon: React.ReactNode;
+  label: string; 
+  value: string | number | null | undefined;
+  tooltip?: string;
+}) => (
+  <div className="info-item">
+    {icon}
+    <div>
+      <div className="text-sm text-gray-500">{label}</div>
+      <Tooltip title={tooltip}>
+        <div className="font-medium truncate max-w-[200px]">
+          {value?.toString() || 'N/A'}
+        </div>
+      </Tooltip>
+    </div>
+  </div>
+);
+
+const StatisticCard = ({ icon, title, value, color }: { icon: React.ReactNode, title: string, value: number, color: string }) => (
+  <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center space-x-4">
+    <div className={`p-3 rounded-full ${color}`}>
+      {icon}
+    </div>
+    <div>
+      <p className="text-gray-500 text-sm">{title}</p>
+      <p className="text-2xl font-semibold">{value}</p>
+    </div>
   </div>
 );
 
 export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps) {
+  const [activeTab, setActiveTab] = useState('info')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(5)
+  // Pagination config
+  const pageSize = 5
 
-  // Reset page when changing tabs
-  const handleTabChange = () => {
-    setCurrentPage(1)
-  }
-
-  // State for student data
-  const [enrolledClasses, setEnrolledClasses] = useState<Class[]>([])
-  const [classRequests, setClassRequests] = useState<ClassRequest[]>([])
-  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([])
-
-  // State for teacher data  
-  const [createdClasses, setCreatedClasses] = useState<Class[]>([])
-  const [teachingClasses, setTeachingClasses] = useState<Class[]>([])
+  // Data states
+  const [createdClasses, setCreatedClasses] = useState<ClassRequest[]>([])
   const [createdExams, setCreatedExams] = useState<Exam[]>([])
-  const [subjects, setSubjects] = useState<Subject[]>([])
-  const [questions, setQuestions] = useState<Question[]>([])
+  const [createdQuestions, setCreatedQuestions] = useState<Question[]>([])
+  const [teachingClasses, setTeachingClasses] = useState<ClassRequest[]>([])
 
   const [formData, setFormData] = useState<Partial<User>>({
     // ... existing code ...
@@ -132,13 +194,10 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
   const isTeacherOrAdmin = user?.role === 'ROLE_TEACHER' || user?.role === 'teacher' || user?.role === 'ROLE_ADMIN' || user?.role === 'admin'
 
   // Check if content needs scrolling
-  const needsScroll = createdClasses.length > itemsPerPage || 
-                     teachingClasses.length > itemsPerPage || 
-                     createdExams.length > itemsPerPage || 
-                     questions.length > itemsPerPage ||
-                     enrolledClasses.length > itemsPerPage ||
-                     classRequests.length > itemsPerPage ||
-                     userAnswers.length > itemsPerPage
+  const needsScroll = createdClasses.length > pageSize || 
+                     teachingClasses.length > pageSize || 
+                     createdExams.length > pageSize || 
+                     createdQuestions.length > pageSize
 
   const formatDate = (date: string) => {
     return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: vi })
@@ -211,415 +270,511 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
     }
   }
 
-  if (!user) return null
+  const loadUserData = async () => {
+    if (!user) return
+    setLoading(true)
+    try {
+      if (user.role === 'ROLE_TEACHER' || user.role === 'ROLE_ADMIN') {
+        console.log('Loading data for teacher/admin:', user.id)
+        const [classes, exams, questions, teaching] = await Promise.all([
+          userService.getUserCreatedClasses(user.id),
+          userService.getUserCreatedExams(user.id),
+          userService.getUserCreatedQuestions(user.id),
+          user.role === 'ROLE_TEACHER' ? userService.getTeacherClasses(user.id) : Promise.resolve([])
+        ])
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-4 md:p-6">
-        <DialogHeader className="space-y-2">
-          <DialogTitle className="text-xl md:text-2xl font-semibold">Thông tin chi tiết người dùng</DialogTitle>
-        </DialogHeader>
+        console.log('Loaded data:', { classes, exams, questions, teaching })
+        setCreatedClasses(classes)
+        setCreatedExams(exams)
+        setCreatedQuestions(questions)
+        setTeachingClasses(teaching)
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error)
+      toast.error('Không thể tải dữ liệu người dùng')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-        <div className={cn(
-          "mt-4 md:mt-6 space-y-6",
-          "overflow-y-auto",
-          needsScroll ? "h-[calc(90vh-120px)]" : "h-auto"
-        )}>
-          <div className="flex flex-col md:flex-row gap-4 md:gap-8">
-            <div className="w-full md:w-[200px] flex-shrink-0">
-              <div className="aspect-square rounded-xl overflow-hidden border shadow-sm mx-auto md:mx-0 max-w-[200px]">
-                <img 
-                  src={user.image || '/placeholder-avatar.png'} 
-                  alt="User avatar"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
+  useEffect(() => {
+    if (isOpen && user) {
+      loadUserData()
+    }
+  }, [isOpen, user])
 
-            <div className="flex-1 min-w-0 space-y-4 md:space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3">
-                <h2 className="text-xl md:text-2xl font-semibold truncate">{user.name}</h2>
-                <Badge variant={user.role === 'ADMIN' ? 'default' : 'secondary'} className="h-6 px-3 w-fit text-sm">
-                  {getRoleName(user.role)}
-                </Badge>
-              </div>
-              
-              <p className="text-sm md:text-base text-muted-foreground break-all">{user.email}</p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-                <InfoItem label="Mã số sinh viên" value={user.code} />
-                <InfoItem label="Lớp" value={user.className} />
-                <InfoItem label="Số điện thoại" value={user.phoneNumber} />
-                <InfoItem label="Giới tính" value={user.gender === 'MALE' ? 'Nam' : user.gender === 'FEMALE' ? 'Nữ' : user.gender || 'N/A'} />
-                <InfoItem 
-                  label="Ngày tạo" 
-                  value={user.createdAt ? format(new Date(user.createdAt), "dd/MM/yyyy HH:mm", { locale: vi }) : 'N/A'} 
-                />
-                <InfoItem label="Trạng thái" value={user.isEnabled ? 'Đang hoạt động' : 'Vô hiệu hóa'} />
-              </div>
+  const renderUserInfo = () => (
+    <div className="space-y-8">
+      {/* Header with avatar and basic info */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-start space-x-6">
+          <div className="relative">
+            <Avatar
+              size={120}
+              src={user?.image}
+              icon={<UserOutlined />}
+              className="border-4 border-gray-100 shadow-md"
+            />
+            <div className="absolute -bottom-2 -right-2">
+              <Tag 
+                color={user?.isEnabled ? 'success' : 'error'} 
+                className="rounded-full px-3 shadow-sm"
+              >
+                {user?.isEnabled ? 'Hoạt động' : 'Vô hiệu hóa'}
+              </Tag>
             </div>
           </div>
-
-          <Separator className="my-6 md:my-8" />
-
-          <div className="flex-1">
-            <Tabs defaultValue={isTeacherOrAdmin ? "classes" : "enrolled"} className="w-full" onValueChange={handleTabChange}>
-              <TabsList className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
-                {isTeacherOrAdmin ? (
-                  <>
-                    <TabsTrigger value="classes">Lớp học</TabsTrigger>
-                    <TabsTrigger value="exams">Bài kiểm tra</TabsTrigger>
-                    <TabsTrigger value="questions">Câu hỏi</TabsTrigger>
-                  </>
-                ) : (
-                  <>
-                    <TabsTrigger value="enrolled">Lớp học đã tham gia</TabsTrigger>
-                    <TabsTrigger value="requests">Yêu cầu tham gia</TabsTrigger>
-                    <TabsTrigger value="answers">Bài làm</TabsTrigger>
-                  </>
-                )}
-              </TabsList>
-
-              {isTeacherOrAdmin ? (
-                <>
-                  <TabsContent value="classes">
-                    <div className="space-y-6">
-                      <Card>
-                        <CardHeader className="p-4 md:p-6">
-                          <CardTitle className="text-lg md:text-xl">Lớp học đã tạo</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 md:p-6">
-                          {createdClasses.length === 0 ? (
-                            <p className="text-sm md:text-base text-muted-foreground">Chưa có lớp học nào</p>
-                          ) : (
-                            <>
-                              <div className="space-y-3">
-                                {createdClasses
-                                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                                  .map((cls) => (
-                                    <div key={cls.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                      <div className="mb-2 sm:mb-0">
-                                        <p className="font-medium text-sm md:text-base">{cls.name}</p>
-                                        <p className="text-xs md:text-sm text-muted-foreground">{cls.subject}</p>
-                                      </div>
-                                      <div className="text-xs md:text-sm text-muted-foreground">
-                                        {format(new Date(cls.createdAt), "dd/MM/yyyy", { locale: vi })}
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                              {createdClasses.length > itemsPerPage && (
-                                <div className="mt-4 flex justify-center">
-                                  <Pagination>
-                                    <PaginationContent>
-                                      <PaginationItem>
-                                        <PaginationPrevious 
-                                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                          disabled={currentPage === 1}
-                                        />
-                                      </PaginationItem>
-                                      {Array.from({length: Math.ceil(createdClasses.length / itemsPerPage)}).map((_, i) => (
-                                        <PaginationItem key={i}>
-                                          <PaginationLink
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            isActive={currentPage === i + 1}
-                                          >
-                                            {i + 1}
-                                          </PaginationLink>
-                                        </PaginationItem>
-                                      ))}
-                                      <PaginationItem>
-                                        <PaginationNext 
-                                          onClick={() => setCurrentPage(p => Math.min(Math.ceil(createdClasses.length / itemsPerPage), p + 1))}
-                                          disabled={currentPage === Math.ceil(createdClasses.length / itemsPerPage)}
-                                        />
-                                      </PaginationItem>
-                                    </PaginationContent>
-                                  </Pagination>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader className="p-4 md:p-6">
-                          <CardTitle className="text-lg md:text-xl">Lớp học đang dạy</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 md:p-6">
-                          {teachingClasses.length === 0 ? (
-                            <p className="text-sm md:text-base text-muted-foreground">Chưa có lớp học nào</p>
-                          ) : (
-                            <>
-                              <div className="space-y-3">
-                                {teachingClasses
-                                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                                  .map((cls) => (
-                                    <div key={cls.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                      <div className="mb-2 sm:mb-0">
-                                        <p className="font-medium text-sm md:text-base">{cls.name}</p>
-                                        <p className="text-xs md:text-sm text-muted-foreground">{cls.subject}</p>
-                                      </div>
-                                      <div className="text-xs md:text-sm text-muted-foreground">
-                                        {format(new Date(cls.createdAt), "dd/MM/yyyy", { locale: vi })}
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                              {teachingClasses.length > itemsPerPage && (
-                                <div className="mt-4 flex justify-center">
-                                  <Pagination>
-                                    <PaginationContent>
-                                      <PaginationItem>
-                                        <PaginationPrevious 
-                                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                          disabled={currentPage === 1}
-                                        />
-                                      </PaginationItem>
-                                      {Array.from({length: Math.ceil(teachingClasses.length / itemsPerPage)}).map((_, i) => (
-                                        <PaginationItem key={i}>
-                                          <PaginationLink
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            isActive={currentPage === i + 1}
-                                          >
-                                            {i + 1}
-                                          </PaginationLink>
-                                        </PaginationItem>
-                                      ))}
-                                      <PaginationItem>
-                                        <PaginationNext 
-                                          onClick={() => setCurrentPage(p => Math.min(Math.ceil(teachingClasses.length / itemsPerPage), p + 1))}
-                                          disabled={currentPage === Math.ceil(teachingClasses.length / itemsPerPage)}
-                                        />
-                                      </PaginationItem>
-                                    </PaginationContent>
-                                  </Pagination>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="exams">
-                    <div className="space-y-6">
-                      <Card>
-                        <CardHeader className="p-4 md:p-6">
-                          <CardTitle className="text-lg md:text-xl">Bài kiểm tra đã tạo</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 md:p-6">
-                          {createdExams.length === 0 ? (
-                            <p className="text-sm md:text-base text-muted-foreground">Chưa có bài kiểm tra nào</p>
-                          ) : (
-                            <>
-                              <div className="space-y-3">
-                                {createdExams
-                                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                                  .map((exam) => (
-                                    <div key={exam.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                      <div className="mb-2 sm:mb-0">
-                                        <p className="font-medium text-sm md:text-base">{exam.name}</p>
-                                        <p className="text-xs md:text-sm text-muted-foreground">{exam.subject}</p>
-                                      </div>
-                                      <div className="text-xs md:text-sm text-muted-foreground">
-                                        {format(new Date(exam.createdAt), "dd/MM/yyyy", { locale: vi })}
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                              {createdExams.length > itemsPerPage && (
-                                <div className="mt-4 flex justify-center">
-                                  <Pagination>
-                                    <PaginationContent>
-                                      <PaginationItem>
-                                        <PaginationPrevious 
-                                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                          disabled={currentPage === 1}
-                                        />
-                                      </PaginationItem>
-                                      {Array.from({length: Math.ceil(createdExams.length / itemsPerPage)}).map((_, i) => (
-                                        <PaginationItem key={i}>
-                                          <PaginationLink
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            isActive={currentPage === i + 1}
-                                          >
-                                            {i + 1}
-                                          </PaginationLink>
-                                        </PaginationItem>
-                                      ))}
-                                      <PaginationItem>
-                                        <PaginationNext 
-                                          onClick={() => setCurrentPage(p => Math.min(Math.ceil(createdExams.length / itemsPerPage), p + 1))}
-                                          disabled={currentPage === Math.ceil(createdExams.length / itemsPerPage)}
-                                        />
-                                      </PaginationItem>
-                                    </PaginationContent>
-                                  </Pagination>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="questions">
-                    <div className="space-y-6">
-                      <Card>
-                        <CardHeader className="p-4 md:p-6">
-                          <CardTitle className="text-lg md:text-xl">Câu hỏi đã tạo</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 md:p-6">
-                          {questions.length === 0 ? (
-                            <p className="text-sm md:text-base text-muted-foreground">Chưa có câu hỏi nào</p>
-                          ) : (
-                            <>
-                              <div className="space-y-3">
-                                {questions
-                                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                                  .map((question) => (
-                                    <div key={question.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                      <div className="mb-2 sm:mb-0">
-                                        <p className="font-medium text-sm md:text-base">{question.content}</p>
-                                        <p className="text-xs md:text-sm text-muted-foreground">{question.subject}</p>
-                                      </div>
-                                      <div className="text-xs md:text-sm text-muted-foreground">
-                                        {format(new Date(question.createdAt), "dd/MM/yyyy", { locale: vi })}
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                              {questions.length > itemsPerPage && (
-                                <div className="mt-4 flex justify-center">
-                                  <Pagination>
-                                    <PaginationContent>
-                                      <PaginationItem>
-                                        <PaginationPrevious 
-                                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                          disabled={currentPage === 1}
-                                        />
-                                      </PaginationItem>
-                                      {Array.from({length: Math.ceil(questions.length / itemsPerPage)}).map((_, i) => (
-                                        <PaginationItem key={i}>
-                                          <PaginationLink
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            isActive={currentPage === i + 1}
-                                          >
-                                            {i + 1}
-                                          </PaginationLink>
-                                        </PaginationItem>
-                                      ))}
-                                      <PaginationItem>
-                                        <PaginationNext 
-                                          onClick={() => setCurrentPage(p => Math.min(Math.ceil(questions.length / itemsPerPage), p + 1))}
-                                          disabled={currentPage === Math.ceil(questions.length / itemsPerPage)}
-                                        />
-                                      </PaginationItem>
-                                    </PaginationContent>
-                                  </Pagination>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </TabsContent>
-                </>
-              ) : (
-                <>
-                  <TabsContent value="enrolled">
-                    <Card>
-                      <CardHeader className="p-4 md:p-6">
-                        <CardTitle className="text-lg md:text-xl">Lớp học đã tham gia</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-4 md:p-6">
-                        {enrolledClasses.length === 0 ? (
-                          <p className="text-sm md:text-base text-muted-foreground">Chưa tham gia lớp học nào</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {enrolledClasses.map((cls) => (
-                              <div key={cls.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                <div className="mb-2 sm:mb-0">
-                                  <p className="font-medium text-sm md:text-base">{cls.name}</p>
-                                  <p className="text-xs md:text-sm text-muted-foreground">{cls.subject}</p>
-                                </div>
-                                <div className="text-xs md:text-sm text-muted-foreground">
-                                  {format(new Date(cls.createdAt), "dd/MM/yyyy", { locale: vi })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  <TabsContent value="requests">
-                    <Card>
-                      <CardHeader className="p-4 md:p-6">
-                        <CardTitle className="text-lg md:text-xl">Yêu cầu tham gia lớp học</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-4 md:p-6">
-                        {classRequests.length === 0 ? (
-                          <p className="text-sm md:text-base text-muted-foreground">Chưa có yêu cầu nào</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {classRequests.map((request) => (
-                              <div key={request.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                <div className="mb-2 sm:mb-0">
-                                  <p className="font-medium text-sm md:text-base">{request.className}</p>
-                                  <Badge className={getStatusColor(request.status)}>
-                                    {getStatusText(request.status)}
-                                  </Badge>
-                                </div>
-                                <div className="text-xs md:text-sm text-muted-foreground">
-                                  {format(new Date(request.createdAt), "dd/MM/yyyy", { locale: vi })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-
-                  <TabsContent value="answers">
-                    <Card>
-                      <CardHeader className="p-4 md:p-6">
-                        <CardTitle className="text-lg md:text-xl">Bài làm đã nộp</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-4 md:p-6">
-                        {userAnswers.length === 0 ? (
-                          <p className="text-sm md:text-base text-muted-foreground">Chưa có bài làm nào</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {userAnswers.map((answer) => (
-                              <div key={answer.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                <div className="mb-2 sm:mb-0">
-                                  <p className="font-medium text-sm md:text-base">{answer.examName}</p>
-                                  <p className="text-xs md:text-sm text-muted-foreground">Điểm: {answer.score}</p>
-                                </div>
-                                <div className="text-xs md:text-sm text-muted-foreground">
-                                  {format(new Date(answer.submittedAt), "dd/MM/yyyy", { locale: vi })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                </>
-              )}
-            </Tabs>
+          <div className="flex-grow">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold mb-2 text-gray-800">{user?.name}</h2>
+                <Tag 
+                  color={getRoleColor(typeof user?.role === 'string' ? user?.role : '')} 
+                  className="rounded-full px-4 py-1 text-sm font-medium"
+                >
+                  {getRoleName(user?.role)}
+                </Tag>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              <div className="flex items-center space-x-3 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <MailOutlined className="text-lg text-blue-600" />
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500 mb-1">Email</div>
+                  <div className="font-medium text-gray-800">{user?.email}</div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <PhoneOutlined className="text-lg text-green-600" />
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500 mb-1">Số điện thoại</div>
+                  <div className="font-medium text-gray-800">{user?.phoneNumber || 'Chưa cập nhật'}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      {/* Main Information */}
+      <div className="grid grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold mb-6 pb-2 border-b border-gray-200 text-gray-800">
+            Thông tin học tập
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <IdcardOutlined className="text-lg text-purple-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Mã số</div>
+                <div className="font-medium text-gray-800">{user?.code}</div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <BankOutlined className="text-lg text-orange-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Khoa</div>
+                <div className="font-medium text-gray-800">{user?.department?.name || 'Chưa cập nhật'}</div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+              <div className="p-2 bg-cyan-100 rounded-lg">
+                <BookOutlined className="text-lg text-cyan-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Ngành</div>
+                <div className="font-medium text-gray-800">{user?.major?.name || 'Chưa cập nhật'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold mb-6 pb-2 border-b border-gray-200 text-gray-800">
+            Thông tin cá nhân
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <TeamOutlined className="text-lg text-indigo-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Giới tính</div>
+                <div className="font-medium text-gray-800">
+                  {user?.gender === 'MALE' ? 'Nam' : user?.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <CalendarOutlined className="text-lg text-red-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Ngày tạo</div>
+                <div className="font-medium text-gray-800">
+                  {user?.createdAt ? format(new Date(user.createdAt), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <ClockCircleOutlined className="text-lg text-yellow-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Thời gian tạo</div>
+                <div className="font-medium text-gray-800">
+                  {user?.createdAt ? format(new Date(user.createdAt), 'HH:mm', { locale: vi }) : 'N/A'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (!user) return null
+
+  const isStudent = user.role === 'ROLE_STUDENT'
+  const isTeacher = user.role === 'ROLE_TEACHER'
+  const isAdmin = user.role === 'ROLE_ADMIN'
+
+  const classColumns = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: '80px',
+    },
+    {
+      title: 'Tên lớp',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <span className="font-medium text-gray-800">{text}</span>
+        </Tooltip>
+      ),
+    }
+  ]
+
+  const subjectColumns = [
+    {
+      title: 'Mã môn',
+      dataIndex: 'code',
+      key: 'code',
+    },
+    {
+      title: 'Tên môn học',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <span>{text.length > 30 ? `${text.substring(0, 30)}...` : text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Mô tả',
+      dataIndex: 'description',
+      key: 'description',
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <span>{text.length > 50 ? `${text.substring(0, 50)}...` : text}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Ngày tạo',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (date: string) => new Date(date).toLocaleDateString('vi-VN'),
+    },
+  ]
+
+  const examColumns = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: '80px',
+    },
+    {
+      title: 'Tên bài kiểm tra',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <span className="font-medium text-gray-800">{text}</span>
+        </Tooltip>
+      ),
+    }
+  ]
+
+  const questionColumns = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: '80px',
+    },
+    {
+      title: 'Nội dung câu hỏi',
+      dataIndex: 'content',
+      key: 'content',
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <span className="font-medium text-gray-800">
+            {text.length > 100 ? `${text.substring(0, 100)}...` : text}
+          </span>
+        </Tooltip>
+      ),
+    }
+  ]
+
+  const tabItems = [
+    {
+      key: 'info',
+      label: (
+        <span className="flex items-center space-x-2">
+          <UserOutlined />
+          <span>Thông tin cá nhân</span>
+        </span>
+      ),
+      children: renderUserInfo()
+    }
+  ]
+
+  const emptyState = {
+    emptyText: (
+      <div className="flex flex-col items-center py-8">
+        <InboxOutlined style={{ fontSize: '48px', color: '#ccc' }} />
+        <span className="text-gray-500 mt-3">Không có dữ liệu</span>
+      </div>
+    )
+  }
+
+  // Thêm cấu hình phân trang chung
+  const paginationConfig = {
+    pageSize: 5,
+    showSizeChanger: true,
+    showTotal: (total: number, range: [number, number]) => 
+      `${range[0]}-${range[1]} trên ${total} mục`,
+    pageSizeOptions: ['5', '10', '20', '50'],
+    locale: {
+      items_per_page: '/ trang',
+      jump_to: 'Đến trang',
+      jump_to_confirm: 'Xác nhận',
+      page: 'Trang',
+      prev_page: 'Trang trước',
+      next_page: 'Trang sau',
+      prev_5: '5 trang trước',
+      next_5: '5 trang sau',
+      prev_3: '3 trang trước',
+      next_3: '3 trang sau'
+    }
+  }
+
+  const showTotal = (total: number, type: string) => `Tổng số: ${total} ${type}`;
+
+  if (user?.role === 'ROLE_TEACHER' || user?.role === 'ROLE_ADMIN' || user?.role === 'teacher' || user?.role === 'admin') {
+    tabItems.push(
+      {
+        key: 'classes',
+        label: (
+          <span className="flex items-center space-x-2">
+            <TeamOutlined />
+            <span>Lớp học đã tạo</span>
+          </span>
+        ),
+        children: (
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium flex items-center space-x-2">
+                    <TeamOutlined className="text-blue-500" />
+                    <span>Danh sách lớp học đã tạo</span>
+                  </h3>
+                  <Tag color="blue" className="rounded-full px-3">
+                    {createdClasses.length} lớp
+                  </Tag>
+                </div>
+              </div>
+              <Table
+                columns={classColumns}
+                dataSource={createdClasses}
+                pagination={{
+                  ...paginationConfig,
+                  total: createdClasses.length,
+                  showTotal: (total: number) => showTotal(total, 'lớp học')
+                }}
+                loading={loading}
+                rowKey="id"
+                className="custom-table"
+                locale={emptyState}
+              />
+            </div>
+          </div>
+        )
+      },
+      {
+        key: 'exams',
+        label: (
+          <span className="flex items-center space-x-2">
+            <FileTextOutlined />
+            <span>Bài kiểm tra đã tạo</span>
+          </span>
+        ),
+        children: (
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium flex items-center space-x-2">
+                    <FileTextOutlined className="text-green-500" />
+                    <span>Danh sách bài kiểm tra đã tạo</span>
+                  </h3>
+                  <Tag color="green" className="rounded-full px-3">
+                    {createdExams.length} bài
+                  </Tag>
+                </div>
+              </div>
+              <Table
+                columns={examColumns}
+                dataSource={createdExams}
+                pagination={{
+                  ...paginationConfig,
+                  total: createdExams.length,
+                  showTotal: (total: number) => showTotal(total, 'bài kiểm tra')
+                }}
+                loading={loading}
+                rowKey="id"
+                className="custom-table"
+                locale={emptyState}
+              />
+            </div>
+          </div>
+        )
+      },
+      {
+        key: 'questions',
+        label: (
+          <span className="flex items-center space-x-2">
+            <QuestionCircleOutlined />
+            <span>Câu hỏi đã tạo</span>
+          </span>
+        ),
+        children: (
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium flex items-center space-x-2">
+                    <QuestionCircleOutlined className="text-purple-500" />
+                    <span>Danh sách câu hỏi đã tạo</span>
+                  </h3>
+                  <Tag color="purple" className="rounded-full px-3">
+                    {createdQuestions.length} câu
+                  </Tag>
+                </div>
+              </div>
+              <Table
+                columns={questionColumns}
+                dataSource={createdQuestions}
+                pagination={{
+                  ...paginationConfig,
+                  total: createdQuestions.length,
+                  showTotal: (total: number) => showTotal(total, 'câu hỏi')
+                }}
+                loading={loading}
+                rowKey="id"
+                className="custom-table"
+                locale={emptyState}
+              />
+            </div>
+          </div>
+        )
+      }
+    )
+  }
+
+  if (user?.role === 'ROLE_TEACHER' || user?.role === 'teacher') {
+    tabItems.push({
+      key: 'teaching',
+      label: (
+        <span className="flex items-center space-x-2">
+          <BookOutlined />
+          <span>Lớp học đang dạy</span>
+        </span>
+      ),
+      children: (
+        <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium flex items-center space-x-2">
+                  <BookOutlined className="text-orange-500" />
+                  <span>Danh sách lớp học đang dạy</span>
+                </h3>
+                <Tag color="orange" className="rounded-full px-3">
+                  {teachingClasses.length} lớp
+                </Tag>
+              </div>
+            </div>
+            <Table
+              columns={classColumns}
+              dataSource={teachingClasses}
+              pagination={{
+                ...paginationConfig,
+                total: teachingClasses.length,
+                showTotal: (total: number) => showTotal(total, 'lớp học')
+              }}
+              loading={loading}
+              rowKey="id"
+              className="custom-table"
+              locale={emptyState}
+            />
+          </div>
+        </div>
+      )
+    })
+  }
+
+  return (
+    <Modal
+      title={
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <UserOutlined className="text-xl text-blue-600" />
+          </div>
+          <span className="text-xl font-semibold text-gray-800">Chi tiết người dùng</span>
+        </div>
+      }
+      open={isOpen}
+      onCancel={onClose}
+      footer={null}
+      width={1000}
+      styles={{
+        mask: {
+          backgroundColor: 'rgba(0, 0, 0, 0.45)'
+        }
+      }}
+    >
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabItems}
+        className="mt-6"
+      />
+    </Modal>
   )
 } 

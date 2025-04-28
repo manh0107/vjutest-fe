@@ -12,7 +12,7 @@ export function Header() {
       <div>
         <h1 className="text-2xl font-bold">Chào mừng, {user?.name}!</h1>
         <p className="text-sm text-muted-foreground">
-          Vai trò: {user?.role?.toUpperCase()}
+          Vai trò: {typeof user?.role === 'string' ? user.role.toUpperCase() : user?.role?.id}
         </p>
       </div>
       <div className="flex items-center gap-4">
