@@ -10,7 +10,7 @@ import { toast } from "sonner"
 interface Question {
   id: string
   content: string
-  difficulty: string
+  difficulty: number
   point: number
   createdAt: string
 }

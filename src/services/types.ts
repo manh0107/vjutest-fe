@@ -75,6 +75,7 @@ export interface Question {
   options: string[]
   correctAnswer: string
   examId: number
+  difficulty: string
   createdAt: string
   updatedAt: string
 }

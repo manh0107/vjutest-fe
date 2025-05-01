@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ChapterDetailModal } from './components/ChapterDetailModal'
+import { ChevronDown } from 'lucide-react'
 
 export default function ChaptersPage() {
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -208,7 +209,10 @@ export default function ChaptersPage() {
 
       <ChapterDetailModal
         isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false) || setDetailChapter(null)}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setDetailChapter(null);
+        }}
         chapter={detailChapter}
       />
     </div>
