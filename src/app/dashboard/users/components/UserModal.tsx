@@ -278,13 +278,36 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
                 <Label>Vai trò</Label>
                 <Select
                   value={(() => {
-                    if (typeof formData.role === 'string') return formData.role;
+                    // Ưu tiên lấy từ formData nếu đã chọn
+                    if (typeof formData.role === 'string') {
+                      if (["ROLE_USER", "ROLE_TEACHER", "ROLE_ADMIN"].includes(formData.role)) return formData.role;
+                      if (formData.role === 'student') return 'ROLE_USER';
+                      if (formData.role === 'teacher') return 'ROLE_TEACHER';
+                      if (formData.role === 'admin') return 'ROLE_ADMIN';
+                    }
                     if (typeof formData.role === 'object' && formData.role?.id) {
                       switch (formData.role.id) {
                         case 1: return 'ROLE_ADMIN';
                         case 2: return 'ROLE_TEACHER';
                         case 3: return 'ROLE_USER';
                         default: return '';
+                      }
+                    }
+                    // Nếu đang cập nhật user, lấy từ user.role
+                    if (user) {
+                      if (typeof user.role === 'string') {
+                        if (["ROLE_USER", "ROLE_TEACHER", "ROLE_ADMIN"].includes(user.role)) return user.role;
+                        if (user.role === 'student') return 'ROLE_USER';
+                        if (user.role === 'teacher') return 'ROLE_TEACHER';
+                        if (user.role === 'admin') return 'ROLE_ADMIN';
+                      }
+                      if (typeof user.role === 'object' && user.role?.id) {
+                        switch (user.role.id) {
+                          case 1: return 'ROLE_ADMIN';
+                          case 2: return 'ROLE_TEACHER';
+                          case 3: return 'ROLE_USER';
+                          default: return '';
+                        }
                       }
                     }
                     return '';
