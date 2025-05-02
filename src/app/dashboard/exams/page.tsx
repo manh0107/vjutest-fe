@@ -11,6 +11,8 @@ import { examService } from '@/services/examService'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { Exam, Subject, ClassEntity } from '@/services/types'
+import { ExamCreateModal } from './components/ExamCreateModal'
+import { Button } from '@/components/ui/button'
 
 export default function ExamsPage() {
   const { user } = useAuth()
@@ -22,6 +24,7 @@ export default function ExamsPage() {
   const [exams, setExams] = useState<Exam[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -129,6 +132,9 @@ export default function ExamsPage() {
         <p className="text-sm text-muted-foreground">
           Xem và quản lý các bài kiểm tra công khai hoặc trong lớp học
         </p>
+        <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
+          Tạo bài kiểm tra ngoài lớp học
+        </Button>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="public" className="space-y-4" onValueChange={setActiveTab}>
@@ -193,6 +199,11 @@ export default function ExamsPage() {
             <ExamList exams={filteredExams} loading={loading} />
           </TabsContent>
         </Tabs>
+        <ExamCreateModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={fetchExams}
+        />
       </CardContent>
     </Card>
   )
