@@ -176,13 +176,9 @@ export default function UserManagement() {
         isEnabled: rest.isEnabled === undefined ? true : rest.isEnabled,
         department: department?.id ? { id: department.id, name: department.name } : undefined,
         major: major?.id ? { id: major.id, name: major.name } : undefined,
-        role: { id: getRoleId(typeof rest.role === 'string' ? rest.role : '') }
+        role: { id: getRoleId(typeof rest.role === 'string' ? rest.role : '') },
+        imageUrl: rest.imageUrl // Thêm imageUrl vào dataToSend
       };
-
-      // Nếu có file mới, không gửi imageUrl
-      if (!file && rest.imageUrl) {
-        Object.assign(dataToSend, { imageUrl: rest.imageUrl });
-      }
 
       // Log data before sending
       console.log('Data to send:', JSON.stringify(dataToSend, null, 2));
@@ -202,16 +198,8 @@ export default function UserManagement() {
           }
         });
       } else {
-        const formData = new FormData();
-        formData.append('user', JSON.stringify(dataToSend));
-        console.log('FormData content (no file):', {
-          user: JSON.stringify(dataToSend)
-        });
-        updatedUser = await userService.updateUser(selectedUser.id, formData, currentUser.id, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        // Khi không có file, gửi trực tiếp dataToSend
+        updatedUser = await userService.updateUser(selectedUser.id, dataToSend, currentUser.id);
       }
 
       setUsers(prevUsers => prevUsers.map(user => 

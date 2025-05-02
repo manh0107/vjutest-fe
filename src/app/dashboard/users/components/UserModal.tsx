@@ -85,11 +85,36 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
   const [error, setError] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | undefined>(undefined)
-  const [activeTab, setActiveTab] = useState<'url' | 'file'>('url')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [departments, setDepartments] = useState<Department[]>([])
   const [majors, setMajors] = useState<Major[]>([])
   const [filteredMajors, setFilteredMajors] = useState<Major[]>([])
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      setError('Chỉ chấp nhận file ảnh định dạng JPG, PNG, GIF hoặc WebP')
+      return
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError('Kích thước file không được vượt quá 5MB')
+      return
+    }
+
+    // Cập nhật imageFile state
+    setImageFile(file)
+
+    // Chỉ hiển thị preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const result = reader.result as string
+      setImagePreview(result)
+    }
+    reader.readAsDataURL(file)
+  }
 
   const getRoleId = (role: string | undefined) => {
     switch(role) {
@@ -128,11 +153,6 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
     }
   }, [formData.department, majors]);
 
-  // Log formData changes
-  useEffect(() => {
-    console.log('formData changed:', formData);
-  }, [formData]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -140,9 +160,6 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
     try {
       setIsSubmitting(true);
       setError(null);
-
-      // Log current formData before creating userData
-      console.log('Current formData:', formData);
 
       const userData = {
         ...formData,
@@ -154,43 +171,16 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
         isEnabled: formData.isEnabled,
         department: formData.department?.id ? { id: formData.department.id, name: formData.department.name } : undefined,
         major: formData.major?.id ? { id: formData.major.id, name: formData.major.name } : undefined,
-        role: { id: getRoleId(typeof formData.role === 'string' ? formData.role : '') },
-        imageUrl: formData.imageUrl
+        role: { id: getRoleId(typeof formData.role === 'string' ? formData.role : '') }
       };
 
-      // Log userData before sending
-      console.log('Prepared userData:', userData);
-
-      if (activeTab === 'url') {
-        if (formData.imageUrl?.startsWith('data:')) {
-          setError('Vui lòng nhập URL ảnh hợp lệ');
-          return;
-        }
-        await onSubmit(userData);
-      } else {
-        const formDataToSend = new FormData();
-        // Tạo userData mới không có imageUrl
-        const userDataWithoutImage = { ...userData };
-        delete userDataWithoutImage.imageUrl;
-        
-        // Log data being sent
-        console.log('Sending userDataWithoutImage:', userDataWithoutImage);
-        console.log('Sending imageFile:', imageFile);
-        
-        // Gửi toàn bộ userDataWithoutImage
-        formDataToSend.append('user', JSON.stringify(userDataWithoutImage));
-        if (imageFile) {
-          formDataToSend.append('file', imageFile);
-        }
-
-        // Log FormData content
-        console.log('FormData content:', {
-          user: formDataToSend.get('user'),
-          file: formDataToSend.get('file')
-        });
-
-        await onSubmit(userDataWithoutImage, imageFile);
+      const formDataToSend = new FormData();
+      formDataToSend.append('user', JSON.stringify(userData));
+      if (imageFile) {
+        formDataToSend.append('file', imageFile);
       }
+
+      await onSubmit(userData, imageFile);
 
       resetForm();
       setImagePreview(null);
@@ -201,56 +191,6 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
       setError(err.message || 'Có lỗi xảy ra khi lưu dữ liệu');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      setError('Chỉ chấp nhận file ảnh định dạng JPG, PNG, GIF hoặc WebP')
-      return
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError('Kích thước file không được vượt quá 5MB')
-      return
-    }
-
-    // Cập nhật imageFile state
-    setImageFile(file)
-
-    // Chỉ hiển thị preview
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      const result = reader.result as string
-      setImagePreview(result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value;
-    
-    // Nếu URL bắt đầu bằng data:, thử lấy URL gốc từ thuộc tính src của ảnh
-    if (url.startsWith('data:')) {
-      const img = new Image();
-      img.onload = () => {
-        // Lấy URL gốc từ thuộc tính src của ảnh
-        const originalUrl = img.src;
-        if (originalUrl && !originalUrl.startsWith('data:')) {
-          setFormData(prev => ({ ...prev, imageUrl: originalUrl }));
-        } else {
-          setError('Không thể lấy URL ảnh. Vui lòng nhập URL trực tiếp.');
-        }
-      };
-      img.onerror = () => {
-        setError('Không thể tải ảnh từ URL này.');
-      };
-      img.src = url;
-    } else {
-      setFormData(prev => ({ ...prev, imageUrl: url }));
     }
   };
 
@@ -364,6 +304,26 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="grid gap-2">
+                <Label>Giới tính</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {genderOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Cột phải */}
@@ -459,26 +419,6 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
               </div>
 
               <div className="grid gap-2">
-                <Label>Giới tính</Label>
-                <Select
-                  value={formData.gender}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
-                  disabled={isSubmitting}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn giới tính" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {genderOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
                 <Label>Trạng thái</Label>
                 <Select
                   value={formData.isEnabled?.toString() || "true"}
@@ -497,125 +437,59 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
             </div>
           </div>
 
-          {/* Phần upload ảnh */}
-          <div className="grid gap-4">
-            <Label>Ảnh đại diện</Label>
-            
-            <div className="space-y-4">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('url');
-                      setImageFile(undefined);
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = '';
-                      }
-                    }}
-                    className={cn(
-                      "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm",
-                      activeTab === 'url'
-                        ? "border-blue-500 text-blue-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          {/* Phần upload ảnh - chỉ hiển thị khi cập nhật */}
+          {user && (
+            <div className="grid gap-4">
+              <Label>Ảnh đại diện</Label>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative w-24 h-24 border rounded-lg overflow-hidden">
+                    {imagePreview ? (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                        <ImageIcon className="w-8 h-8 text-gray-400" />
+                      </div>
                     )}
-                  >
-                    Nhập URL ảnh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('file');
-                      setFormData(prev => ({ ...prev, imageUrl: '' }));
-                    }}
-                    className={cn(
-                      "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm",
-                      activeTab === 'file'
-                        ? "border-blue-500 text-blue-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    )}
-                  >
-                    Tải ảnh từ máy
-                  </button>
-                </nav>
+                  </div>
+                  <div className="flex-1">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center">
+                          <Upload className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          Kéo thả ảnh vào đây hoặc
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="ml-1 text-blue-600 hover:text-blue-500 font-medium"
+                          >
+                            chọn ảnh
+                          </button>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Định dạng: JPG, PNG, GIF, WebP. Tối đa 5MB
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              {activeTab === 'url' ? (
-                <div className="grid gap-2">
-                  <Label className="text-sm text-gray-500">Nhập URL ảnh</Label>
-                  <div className="flex items-center gap-4">
-                    <Input
-                      type="url"
-                      placeholder="https://example.com/image.jpg"
-                      value={formData.imageUrl}
-                      onChange={handleImageUrlChange}
-                      disabled={isSubmitting}
-                    />
-                    {formData.imageUrl && (
-                      <div className="relative w-24 h-24 border rounded-lg overflow-hidden">
-                        <img
-                          src={formData.imageUrl}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                          onError={() => {
-                            setFormData(prev => ({ ...prev, imageUrl: '' }));
-                            toast.error('Không thể tải ảnh từ URL này');
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-24 h-24 border rounded-lg overflow-hidden">
-                      {imagePreview ? (
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                          <ImageIcon className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="hidden"
-                        />
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-center">
-                            <Upload className="w-6 h-6 text-gray-400" />
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            Kéo thả ảnh vào đây hoặc
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="ml-1 text-blue-600 hover:text-blue-500 font-medium"
-                            >
-                              chọn ảnh
-                            </button>
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Định dạng: JPG, PNG, GIF, WebP. Tối đa 5MB
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
+          )}
 
           <DialogFooter>
             <Button
