@@ -41,24 +41,20 @@ export const userService = {
   },
 
   // Update user
-  updateUser: async (id: number, userData: Partial<User>, userId: number) => {
-    const response = await axiosInstance.put(`/users/update/${id}?userId=${userId}`, userData)
-    return response.data
+  updateUser: async (id: number, data: FormData | any, userId: number, config?: any) => {
+    const response = await axiosInstance.put(`/users/update/${id}`, data, {
+      ...config,
+      headers: {
+        ...config?.headers,
+        ...(data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {})
+      }
+    });
+    return response.data;
   },
 
   // Delete user
   deleteUser: async (id: number) => {
     const response = await axiosInstance.delete(`/users/delete/${id}`)
-    return response.data
-  },
-
-  // Update user image
-  updateUserImage: async (userId: number, formData: FormData) => {
-    const response = await axiosInstance.post(`/users/${userId}/image`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
     return response.data
   },
 

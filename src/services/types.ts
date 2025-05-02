@@ -7,7 +7,7 @@ export interface User {
   code: number
   phoneNumber: number
   gender: string
-  image: string
+  imageUrl: string
   role: string | { id: number }
   password?: string
   className?: string

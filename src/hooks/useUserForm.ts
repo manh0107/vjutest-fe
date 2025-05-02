@@ -20,15 +20,15 @@ export function useUserForm(initialUser?: User) {
   const initialFormData: UserFormData = {
     name: '',
     email: '',
-    code: undefined,
-    phoneNumber: undefined,
+    code: 0,
+    phoneNumber: 0,
     role: 'ROLE_USER',
     isEnabled: true,
     password: '',
     gender: 'MALE',
-    image: '',
-    department: undefined,
-    major: undefined
+    imageUrl: '',
+    department: { id: 0, name: '' },
+    major: { id: 0, name: '' }
   }
 
   const [formData, setFormData] = useState<UserFormData>(initialFormData)
@@ -46,8 +46,10 @@ export function useUserForm(initialUser?: User) {
           return initialUser.role || 'ROLE_USER';
         })(),
         password: '',
-        department: initialUser.department ?? undefined,
-        major: initialUser.major ?? undefined,
+        department: initialUser.department || { id: 0, name: '' },
+        major: initialUser.major || { id: 0, name: '' },
+        code: initialUser.code || 0,
+        phoneNumber: initialUser.phoneNumber || 0
       })
     } else {
       setFormData(initialFormData)

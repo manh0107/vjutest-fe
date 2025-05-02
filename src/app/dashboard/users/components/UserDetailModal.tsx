@@ -10,10 +10,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,34 +19,18 @@ import { userService } from '@/services/userService'
 import { toast } from 'sonner'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { X } from 'lucide-react'
+import { X, User as UserIcon, Mail, Phone, CreditCard, Building2, Users, Book, Calendar, Clock, FileText, HelpCircle, Inbox } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
-import { Modal, Table, Tabs, Tag, Avatar, Tooltip, Row, Col, Typography } from 'antd'
-import type { TabsProps } from 'antd'
-import { 
-  UserOutlined, 
-  MailOutlined, 
-  PhoneOutlined, 
-  IdcardOutlined,
-  BankOutlined,
-  TeamOutlined,
-  BookOutlined,
-  CalendarOutlined,
-  ClockCircleOutlined,
-  FileTextOutlined,
-  QuestionCircleOutlined,
-  InboxOutlined
-} from '@ant-design/icons'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import './UserDetailModal.css'
-
-const { TabPane } = Tabs
-const { Title, Text } = Typography
 
 interface UserDetailModalProps {
   user: User | null;
   isOpen: boolean;
   onClose: () => void;
+  onUpdateSuccess?: (updatedUser: User) => void;
 }
 
 interface ClassRequest {
@@ -125,40 +107,49 @@ const getRoleColor = (role: string): string => {
   switch (role) {
     case 'ROLE_ADMIN':
     case 'admin':
-      return '#f50';
+      return 'bg-red-500';
     case 'ROLE_TEACHER':
     case 'teacher':
-      return '#108ee9';
+      return 'bg-blue-500';
     default:
-      return '#87d068';
+      return 'bg-green-500';
   }
 };
 
-const InfoItem = ({ 
-  icon, 
-  label, 
-  value, 
-  tooltip 
-}: { 
+interface InfoItemProps {
   icon: React.ReactNode;
   label: string; 
   value: string | number | null | undefined;
   tooltip?: string;
-}) => (
+}
+
+const InfoItem = ({ icon, label, value, tooltip }: InfoItemProps) => (
   <div className="info-item">
     {icon}
     <div>
       <div className="text-sm text-gray-500">{label}</div>
-      <Tooltip title={tooltip}>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
         <div className="font-medium truncate max-w-[200px]">
           {value?.toString() || 'N/A'}
         </div>
+          </TooltipTrigger>
+          {tooltip && <TooltipContent>{tooltip}</TooltipContent>}
       </Tooltip>
+      </TooltipProvider>
     </div>
   </div>
 );
 
-const StatisticCard = ({ icon, title, value, color }: { icon: React.ReactNode, title: string, value: number, color: string }) => (
+interface StatisticCardProps {
+  icon: React.ReactNode;
+  title: string;
+  value: number;
+  color: string;
+}
+
+const StatisticCard = ({ icon, title, value, color }: StatisticCardProps) => (
   <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center space-x-4">
     <div className={`p-3 rounded-full ${color}`}>
       {icon}
@@ -170,7 +161,7 @@ const StatisticCard = ({ icon, title, value, color }: { icon: React.ReactNode, t
   </div>
 );
 
-export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps) {
+export function UserDetailModal({ user, isOpen, onClose, onUpdateSuccess }: UserDetailModalProps) {
   const [activeTab, setActiveTab] = useState('info')
   const [loading, setLoading] = useState(false)
 
@@ -183,12 +174,9 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
   const [createdQuestions, setCreatedQuestions] = useState<Question[]>([])
   const [teachingClasses, setTeachingClasses] = useState<ClassRequest[]>([])
 
-  const [formData, setFormData] = useState<Partial<User>>({
-    // ... existing code ...
-  })
-
+  const [formData, setFormData] = useState<Partial<User>>({})
   const [imageUrl, setImageUrl] = useState<string>('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageFile, setImageFile] = useState<File | undefined>(undefined)
   const [isUploading, setIsUploading] = useState(false)
 
   const isTeacherOrAdmin = user?.role === 'ROLE_TEACHER' || user?.role === 'teacher' || user?.role === 'ROLE_ADMIN' || user?.role === 'admin'
@@ -199,17 +187,21 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                      createdExams.length > pageSize || 
                      createdQuestions.length > pageSize
 
+  useEffect(() => {
+    if (user) {
+      loadUserData()
+    }
+  }, [user])
+
   const formatDate = (date: string) => {
     return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: vi })
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-500'
-      case 'APPROVED':
+      case 'ACTIVE':
         return 'bg-green-500'
-      case 'REJECTED':
+      case 'INACTIVE':
         return 'bg-red-500'
       default:
         return 'bg-gray-500'
@@ -218,31 +210,32 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'PENDING':
-        return 'Đang chờ'
-      case 'APPROVED':
-        return 'Đã duyệt'
-      case 'REJECTED':
-        return 'Từ chối'
+      case 'ACTIVE':
+        return 'Hoạt động'
+      case 'INACTIVE':
+        return 'Vô hiệu'
       default:
-        return status
+        return 'Không xác định'
     }
   }
 
-  useEffect(() => {
-    if (user?.image) {
-      setImageUrl(user.image)
-    }
-  }, [user])
-
   const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImageUrl(e.target.value)
+    const newUrl = e.target.value
+    setImageUrl(newUrl)
+    // Khi thay đổi URL, reset file input
+    setImageFile(undefined)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0])
-      setImageUrl(URL.createObjectURL(e.target.files[0]))
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Chỉ được phép tải lên file ảnh!')
+        return
+      }
+      setImageFile(file)
+      // Khi chọn file mới, reset URL input
+      setImageUrl('')
     }
   }
 
@@ -251,17 +244,45 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
 
     try {
       setIsUploading(true)
-      const formData = new FormData()
       
+      // Nếu có file mới, ưu tiên sử dụng file
       if (imageFile) {
+        const formData = new FormData()
         formData.append('file', imageFile)
+        // Không gửi imageUrl khi có file mới
+        formData.append('user', JSON.stringify({ ...user }))
+        const updatedUser = await userService.updateUser(user.id, formData, user.id, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+        // Kiểm tra response
+        if (updatedUser) {
+          // Gọi callback nếu có
+          if (onUpdateSuccess) {
+            onUpdateSuccess(updatedUser)
+          }
+          // Cập nhật lại imageUrl từ response
+          setImageUrl(updatedUser.imageUrl)
+          // Reset file input
+          setImageFile(undefined)
+          toast.success('Cập nhật ảnh thành công')
+        } else {
+          throw new Error('Không nhận được dữ liệu từ server')
+        }
       } else if (imageUrl) {
-        formData.append('imageUrl', imageUrl)
+        // Nếu không có file mới nhưng có URL mới, sử dụng URL
+        const updatedUser = await userService.updateUser(user.id, { ...user, imageUrl }, user.id)
+        if (updatedUser) {
+          if (onUpdateSuccess) {
+            onUpdateSuccess(updatedUser)
+          }
+          setImageUrl(updatedUser.imageUrl)
+          toast.success('Cập nhật ảnh thành công')
+        } else {
+          throw new Error('Không nhận được dữ liệu từ server')
+        }
       }
-
-      await userService.updateUserImage(user.id, formData)
-      toast.success('Cập nhật ảnh thành công')
-      onClose()
     } catch (error) {
       console.error('Error updating image:', error)
       toast.error('Không thể cập nhật ảnh')
@@ -270,511 +291,241 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
     }
   }
 
-  const loadUserData = async () => {
-    if (!user) return
-    setLoading(true)
+  const handleUpdateUserInfo = async (updatedUserData: Partial<User>) => {
+    if (!user?.id) return
+
     try {
-      if (user.role === 'ROLE_TEACHER' || user.role === 'ROLE_ADMIN') {
-        console.log('Loading data for teacher/admin:', user.id)
+      setIsUploading(true)
+      // Kết hợp dữ liệu hiện tại với dữ liệu mới
+      const userData = {
+        ...user,
+        ...updatedUserData,
+        // Giữ nguyên các trường quan trọng
+        id: user.id,
+        role: user.role,
+        department: user.department,
+        major: user.major,
+        createdAt: user.createdAt
+      }
+      
+      // Gọi API cập nhật
+      const updatedUser = await userService.updateUser(user.id, userData, user.id)
+      
+      // Kiểm tra response
+      if (updatedUser) {
+        // Gọi callback nếu có
+        if (onUpdateSuccess) {
+          onUpdateSuccess(updatedUser)
+        }
+        // Đóng modal
+        if (onClose) {
+          onClose()
+        }
+        toast.success('Cập nhật thông tin thành công')
+      } else {
+        throw new Error('Không nhận được dữ liệu từ server')
+      }
+    } catch (error) {
+      console.error('Error updating user info:', error)
+      toast.error('Không thể cập nhật thông tin')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleUpdateUserAndImage = async (updatedUserData: Partial<User>) => {
+    if (!user?.id) return
+
+    try {
+      setIsUploading(true)
+      if (imageFile) {
+        const formData = new FormData()
+        formData.append('user', JSON.stringify(updatedUserData))
+        formData.append('file', imageFile)
+        await userService.updateUser(user.id, formData, user.id, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+      } else {
+        await userService.updateUser(user.id, updatedUserData, user.id)
+      }
+      toast.success('Cập nhật thông tin và ảnh thành công')
+    } catch (error) {
+      console.error('Error updating user and image:', error)
+      toast.error('Không thể cập nhật thông tin và ảnh')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const loadUserData = async () => {
+    if (!user?.id) return
+
+    try {
+      setLoading(true)
         const [classes, exams, questions, teaching] = await Promise.all([
           userService.getUserCreatedClasses(user.id),
           userService.getUserCreatedExams(user.id),
           userService.getUserCreatedQuestions(user.id),
-          user.role === 'ROLE_TEACHER' ? userService.getTeacherClasses(user.id) : Promise.resolve([])
+        isTeacherOrAdmin ? userService.getTeacherClasses(user.id) : Promise.resolve([])
         ])
 
-        console.log('Loaded data:', { classes, exams, questions, teaching })
         setCreatedClasses(classes)
         setCreatedExams(exams)
         setCreatedQuestions(questions)
         setTeachingClasses(teaching)
-      }
     } catch (error) {
       console.error('Error loading user data:', error)
-      toast.error('Không thể tải dữ liệu người dùng')
+      toast.error('Không thể tải dữ liệu')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    if (isOpen && user) {
-      loadUserData()
-    }
-  }, [isOpen, user])
-
   const renderUserInfo = () => (
-    <div className="space-y-8">
-      {/* Header with avatar and basic info */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-start space-x-6">
-          <div className="relative">
-            <Avatar
-              size={120}
-              src={user?.image}
-              icon={<UserOutlined />}
-              className="border-4 border-gray-100 shadow-md"
-            />
-            <div className="absolute -bottom-2 -right-2">
-              <Tag 
-                color={user?.isEnabled ? 'success' : 'error'} 
-                className="rounded-full px-3 shadow-sm"
-              >
-                {user?.isEnabled ? 'Hoạt động' : 'Vô hiệu hóa'}
-              </Tag>
-            </div>
-          </div>
-          <div className="flex-grow">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-2xl font-bold mb-2 text-gray-800">{user?.name}</h2>
-                <Tag 
-                  color={getRoleColor(typeof user?.role === 'string' ? user?.role : '')} 
-                  className="rounded-full px-4 py-1 text-sm font-medium"
-                >
-                  {getRoleName(user?.role)}
-                </Tag>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <div className="flex items-center space-x-3 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <MailOutlined className="text-lg text-blue-600" />
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4">
+        <div className="h-20 w-20 relative">
+          <Avatar className="h-full w-full">
+            <AvatarImage src={user?.imageUrl} alt={user?.name || ''} />
+            <AvatarFallback>{user?.name?.[0]?.toUpperCase()}</AvatarFallback>
+          </Avatar>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-500 mb-1">Email</div>
-                  <div className="font-medium text-gray-800">{user?.email}</div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <PhoneOutlined className="text-lg text-green-600" />
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500 mb-1">Số điện thoại</div>
-                  <div className="font-medium text-gray-800">{user?.phoneNumber || 'Chưa cập nhật'}</div>
-                </div>
-              </div>
-            </div>
+          <h3 className="text-xl font-semibold">{user?.name}</h3>
+          <div className={cn("px-2 py-1 rounded-full text-sm font-medium", getRoleColor(user?.role as string), 'text-white')}>
+            {getRoleName(user?.role)}
           </div>
         </div>
       </div>
 
-      {/* Main Information */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold mb-6 pb-2 border-b border-gray-200 text-gray-800">
-            Thông tin học tập
-          </h3>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <IdcardOutlined className="text-lg text-purple-600" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Mã số</div>
-                <div className="font-medium text-gray-800">{user?.code}</div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <BankOutlined className="text-lg text-orange-600" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Khoa</div>
-                <div className="font-medium text-gray-800">{user?.department?.name || 'Chưa cập nhật'}</div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-              <div className="p-2 bg-cyan-100 rounded-lg">
-                <BookOutlined className="text-lg text-cyan-600" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Ngành</div>
-                <div className="font-medium text-gray-800">{user?.major?.name || 'Chưa cập nhật'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold mb-6 pb-2 border-b border-gray-200 text-gray-800">
-            Thông tin cá nhân
-          </h3>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <TeamOutlined className="text-lg text-indigo-600" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Giới tính</div>
-                <div className="font-medium text-gray-800">
-                  {user?.gender === 'MALE' ? 'Nam' : user?.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <CalendarOutlined className="text-lg text-red-600" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Ngày tạo</div>
-                <div className="font-medium text-gray-800">
-                  {user?.createdAt ? format(new Date(user.createdAt), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4 bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <ClockCircleOutlined className="text-lg text-yellow-600" />
-              </div>
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Thời gian tạo</div>
-                <div className="font-medium text-gray-800">
-                  {user?.createdAt ? format(new Date(user.createdAt), 'HH:mm', { locale: vi }) : 'N/A'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-4">
+        <InfoItem 
+          icon={<UserIcon className="w-5 h-5" />} 
+          label="Mã số" 
+          value={user?.code} 
+        />
+        <InfoItem 
+          icon={<Mail className="w-5 h-5" />} 
+          label="Email" 
+          value={user?.email} 
+        />
+        <InfoItem 
+          icon={<Phone className="w-5 h-5" />} 
+          label="Số điện thoại" 
+          value={user?.phoneNumber} 
+        />
+        <InfoItem 
+          icon={<Building2 className="w-5 h-5" />} 
+          label="Khoa" 
+          value={user?.department?.name} 
+        />
+        <InfoItem 
+          icon={<Book className="w-5 h-5" />} 
+          label="Ngành" 
+          value={user?.major?.name} 
+        />
+        <InfoItem 
+          icon={<Calendar className="w-5 h-5" />} 
+          label="Ngày tạo" 
+          value={user?.createdAt ? formatDate(user.createdAt) : undefined} 
+        />
       </div>
     </div>
   )
 
-  if (!user) return null
-
-  const isStudent = user.role === 'ROLE_STUDENT'
-  const isTeacher = user.role === 'ROLE_TEACHER'
-  const isAdmin = user.role === 'ROLE_ADMIN'
-
-  const classColumns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: '80px',
-    },
-    {
-      title: 'Tên lớp',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string) => (
-        <Tooltip title={text}>
-          <span className="font-medium text-gray-800">{text}</span>
-        </Tooltip>
-      ),
-    }
-  ]
-
-  const subjectColumns = [
-    {
-      title: 'Mã môn',
-      dataIndex: 'code',
-      key: 'code',
-    },
-    {
-      title: 'Tên môn học',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string) => (
-        <Tooltip title={text}>
-          <span>{text.length > 30 ? `${text.substring(0, 30)}...` : text}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Mô tả',
-      dataIndex: 'description',
-      key: 'description',
-      render: (text: string) => (
-        <Tooltip title={text}>
-          <span>{text.length > 50 ? `${text.substring(0, 50)}...` : text}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Ngày tạo',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date: string) => new Date(date).toLocaleDateString('vi-VN'),
-    },
-  ]
-
-  const examColumns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: '80px',
-    },
-    {
-      title: 'Tên bài kiểm tra',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string) => (
-        <Tooltip title={text}>
-          <span className="font-medium text-gray-800">{text}</span>
-        </Tooltip>
-      ),
-    }
-  ]
-
-  const questionColumns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: '80px',
-    },
-    {
-      title: 'Nội dung câu hỏi',
-      dataIndex: 'content',
-      key: 'content',
-      render: (text: string) => (
-        <Tooltip title={text}>
-          <span className="font-medium text-gray-800">
-            {text.length > 100 ? `${text.substring(0, 100)}...` : text}
-          </span>
-        </Tooltip>
-      ),
-    }
-  ]
-
-  const tabItems = [
-    {
-      key: 'info',
-      label: (
-        <span className="flex items-center space-x-2">
-          <UserOutlined />
-          <span>Thông tin cá nhân</span>
-        </span>
-      ),
-      children: renderUserInfo()
-    }
-  ]
-
-  const emptyState = {
-    emptyText: (
-      <div className="flex flex-col items-center py-8">
-        <InboxOutlined style={{ fontSize: '48px', color: '#ccc' }} />
-        <span className="text-gray-500 mt-3">Không có dữ liệu</span>
-      </div>
-    )
-  }
-
-  // Thêm cấu hình phân trang chung
-  const paginationConfig = {
-    pageSize: 5,
-    showSizeChanger: true,
-    showTotal: (total: number, range: [number, number]) => 
-      `${range[0]}-${range[1]} trên ${total} mục`,
-    pageSizeOptions: ['5', '10', '20', '50'],
-    locale: {
-      items_per_page: '/ trang',
-      jump_to: 'Đến trang',
-      jump_to_confirm: 'Xác nhận',
-      page: 'Trang',
-      prev_page: 'Trang trước',
-      next_page: 'Trang sau',
-      prev_5: '5 trang trước',
-      next_5: '5 trang sau',
-      prev_3: '3 trang trước',
-      next_3: '3 trang sau'
-    }
-  }
-
-  const showTotal = (total: number, type: string) => `Tổng số: ${total} ${type}`;
-
-  if (user?.role === 'ROLE_TEACHER' || user?.role === 'ROLE_ADMIN' || user?.role === 'teacher' || user?.role === 'admin') {
-    tabItems.push(
-      {
-        key: 'classes',
-        label: (
-          <span className="flex items-center space-x-2">
-            <TeamOutlined />
-            <span>Lớp học đã tạo</span>
-          </span>
-        ),
-        children: (
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium flex items-center space-x-2">
-                    <TeamOutlined className="text-blue-500" />
-                    <span>Danh sách lớp học đã tạo</span>
-                  </h3>
-                  <Tag color="blue" className="rounded-full px-3">
-                    {createdClasses.length} lớp
-                  </Tag>
-                </div>
-              </div>
-              <Table
-                columns={classColumns}
-                dataSource={createdClasses}
-                pagination={{
-                  ...paginationConfig,
-                  total: createdClasses.length,
-                  showTotal: (total: number) => showTotal(total, 'lớp học')
-                }}
-                loading={loading}
-                rowKey="id"
-                className="custom-table"
-                locale={emptyState}
-              />
-            </div>
-          </div>
-        )
-      },
-      {
-        key: 'exams',
-        label: (
-          <span className="flex items-center space-x-2">
-            <FileTextOutlined />
-            <span>Bài kiểm tra đã tạo</span>
-          </span>
-        ),
-        children: (
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium flex items-center space-x-2">
-                    <FileTextOutlined className="text-green-500" />
-                    <span>Danh sách bài kiểm tra đã tạo</span>
-                  </h3>
-                  <Tag color="green" className="rounded-full px-3">
-                    {createdExams.length} bài
-                  </Tag>
-                </div>
-              </div>
-              <Table
-                columns={examColumns}
-                dataSource={createdExams}
-                pagination={{
-                  ...paginationConfig,
-                  total: createdExams.length,
-                  showTotal: (total: number) => showTotal(total, 'bài kiểm tra')
-                }}
-                loading={loading}
-                rowKey="id"
-                className="custom-table"
-                locale={emptyState}
-              />
-            </div>
-          </div>
-        )
-      },
-      {
-        key: 'questions',
-        label: (
-          <span className="flex items-center space-x-2">
-            <QuestionCircleOutlined />
-            <span>Câu hỏi đã tạo</span>
-          </span>
-        ),
-        children: (
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium flex items-center space-x-2">
-                    <QuestionCircleOutlined className="text-purple-500" />
-                    <span>Danh sách câu hỏi đã tạo</span>
-                  </h3>
-                  <Tag color="purple" className="rounded-full px-3">
-                    {createdQuestions.length} câu
-                  </Tag>
-                </div>
-              </div>
-              <Table
-                columns={questionColumns}
-                dataSource={createdQuestions}
-                pagination={{
-                  ...paginationConfig,
-                  total: createdQuestions.length,
-                  showTotal: (total: number) => showTotal(total, 'câu hỏi')
-                }}
-                loading={loading}
-                rowKey="id"
-                className="custom-table"
-                locale={emptyState}
-              />
-            </div>
-          </div>
-        )
-      }
-    )
-  }
-
-  if (user?.role === 'ROLE_TEACHER' || user?.role === 'teacher') {
-    tabItems.push({
-      key: 'teaching',
-      label: (
-        <span className="flex items-center space-x-2">
-          <BookOutlined />
-          <span>Lớp học đang dạy</span>
-        </span>
-      ),
-      children: (
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium flex items-center space-x-2">
-                  <BookOutlined className="text-orange-500" />
-                  <span>Danh sách lớp học đang dạy</span>
-                </h3>
-                <Tag color="orange" className="rounded-full px-3">
-                  {teachingClasses.length} lớp
-                </Tag>
-              </div>
-            </div>
-            <Table
-              columns={classColumns}
-              dataSource={teachingClasses}
-              pagination={{
-                ...paginationConfig,
-                total: teachingClasses.length,
-                showTotal: (total: number) => showTotal(total, 'lớp học')
-              }}
-              loading={loading}
-              rowKey="id"
-              className="custom-table"
-              locale={emptyState}
-            />
-          </div>
-        </div>
-      )
-    })
-  }
-
   return (
-    <Modal
-      title={
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <UserOutlined className="text-xl text-blue-600" />
-          </div>
-          <span className="text-xl font-semibold text-gray-800">Chi tiết người dùng</span>
-        </div>
-      }
-      open={isOpen}
-      onCancel={onClose}
-      footer={null}
-      width={1000}
-      styles={{
-        mask: {
-          backgroundColor: 'rgba(0, 0, 0, 0.45)'
-        }
-      }}
-    >
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        items={tabItems}
-        className="mt-6"
-      />
-    </Modal>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Thông tin chi tiết người dùng</DialogTitle>
+          <DialogDescription>
+            Xem và quản lý thông tin người dùng
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="info">Thông tin</TabsTrigger>
+            {isTeacherOrAdmin && (
+              <>
+                <TabsTrigger value="classes">Lớp học</TabsTrigger>
+                <TabsTrigger value="exams">Bài kiểm tra</TabsTrigger>
+                <TabsTrigger value="questions">Câu hỏi</TabsTrigger>
+              </>
+            )}
+          </TabsList>
+
+          <TabsContent value="info">
+            {renderUserInfo()}
+          </TabsContent>
+
+          {isTeacherOrAdmin && (
+            <>
+              <TabsContent value="classes">
+          <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Lớp học đã tạo</h3>
+                  <ScrollArea className="h-[300px]">
+                    {createdClasses.map((classItem) => (
+                      <Card key={classItem.id} className="mb-2">
+                        <CardHeader>
+                          <CardTitle>{classItem.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p>Mã lớp: {classItem.classCode}</p>
+                          <p>Ngày tạo: {formatDate(classItem.createdAt)}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </ScrollArea>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="exams">
+          <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Bài kiểm tra đã tạo</h3>
+                  <ScrollArea className="h-[300px]">
+                    {createdExams.map((exam) => (
+                      <Card key={exam.id} className="mb-2">
+                        <CardHeader>
+                          <CardTitle>{exam.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p>Môn học: {exam.subjectName}</p>
+                          <p>Thời gian: {exam.duration} phút</p>
+                          <p>Ngày tạo: {formatDate(exam.createdAt)}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </ScrollArea>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="questions">
+          <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Câu hỏi đã tạo</h3>
+                  <ScrollArea className="h-[300px]">
+                    {createdQuestions.map((question) => (
+                      <Card key={question.id} className="mb-2">
+                        <CardHeader>
+                          <CardTitle>Câu hỏi #{question.id}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p>Nội dung: {question.content}</p>
+                          <p>Độ khó: {question.difficulty}</p>
+                          <p>Điểm: {question.point}</p>
+                          <p>Ngày tạo: {formatDate(question.createdAt)}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </ScrollArea>
+                </div>
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   )
 } 

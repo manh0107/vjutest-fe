@@ -33,6 +33,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { useRouter } from 'next/navigation'
+import { axiosInstance } from '@/services/axiosInstance'
 
 interface Role {
   name: string;
@@ -77,7 +78,7 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
-  const handleCreateUser = async (userData: Partial<User>) => {
+  const handleCreateUser = async (userData: Partial<User>, imageFile?: File) => {
     if (!currentUser?.id) {
       toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
       return;
@@ -102,7 +103,7 @@ export default function UserManagement() {
         phoneNumber: rest.phoneNumber ? Number(rest.phoneNumber) : undefined,
         password: rest.password,
         gender: rest.gender,
-        image: rest.image || undefined,
+        imageUrl: rest.imageUrl || undefined,
         isEnabled: rest.isEnabled === undefined ? true : rest.isEnabled,
         department: department?.id ? { id: department.id, name: department.name } : undefined,
         major: major?.id ? { id: major.id, name: major.name } : undefined,
@@ -152,7 +153,7 @@ export default function UserManagement() {
     }
   }
 
-  const handleUpdateUser = async (userData: Partial<User>) => {
+  const handleUpdateUser = async (userData: Partial<User>, file?: File) => {
     if (!selectedUser?.id || !currentUser?.id) return
     try {
       const getRoleId = (role: string | undefined) => {
@@ -164,13 +165,55 @@ export default function UserManagement() {
         }
       };
       const { department, major, ...rest } = userData;
+      
+      // Chỉ gửi các trường cần thiết
       const dataToSend = {
-        ...rest,
+        name: rest.name,
+        email: rest.email,
+        code: rest.code ? Number(rest.code) : undefined,
+        phoneNumber: rest.phoneNumber ? Number(rest.phoneNumber) : undefined,
+        gender: rest.gender,
+        isEnabled: rest.isEnabled === undefined ? true : rest.isEnabled,
         department: department?.id ? { id: department.id, name: department.name } : undefined,
         major: major?.id ? { id: major.id, name: major.name } : undefined,
         role: { id: getRoleId(typeof rest.role === 'string' ? rest.role : '') }
       };
-      const updatedUser = await userService.updateUser(selectedUser.id, dataToSend, currentUser.id)
+
+      // Nếu có file mới, không gửi imageUrl
+      if (!file && rest.imageUrl) {
+        Object.assign(dataToSend, { imageUrl: rest.imageUrl });
+      }
+
+      // Log data before sending
+      console.log('Data to send:', JSON.stringify(dataToSend, null, 2));
+
+      let updatedUser;
+      if (file) {
+        const formData = new FormData();
+        formData.append('user', JSON.stringify(dataToSend));
+        formData.append('file', file);
+        console.log('FormData content:', {
+          user: JSON.stringify(dataToSend),
+          hasFile: !!file
+        });
+        updatedUser = await userService.updateUser(selectedUser.id, formData, currentUser.id, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      } else {
+        const formData = new FormData();
+        formData.append('user', JSON.stringify(dataToSend));
+        console.log('FormData content (no file):', {
+          user: JSON.stringify(dataToSend)
+        });
+        updatedUser = await userService.updateUser(selectedUser.id, formData, currentUser.id, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
+
       setUsers(prevUsers => prevUsers.map(user => 
         user.id === updatedUser.id ? updatedUser : user
       ))
@@ -267,13 +310,13 @@ export default function UserManagement() {
     setCurrentPage(pageNumber);
   };
 
-  const handleModalSubmit = async (userData: Partial<User>) => {
+  const handleModalSubmit = async (userData: Partial<User>, imageFile?: File) => {
     try {
       let success;
       if (selectedUser) {
-        success = await handleUpdateUser(userData)
+        success = await handleUpdateUser(userData, imageFile)
       } else {
-        success = await handleCreateUser(userData)
+        success = await handleCreateUser(userData, imageFile)
       }
       if (success) {
         setIsModalOpen(false)
@@ -345,7 +388,7 @@ export default function UserManagement() {
                   </TableCell>
                   <TableCell className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.image || ''} />
+                      <AvatarImage src={user.imageUrl || ''} />
                       <AvatarFallback>{user.name?.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     {user.name}
