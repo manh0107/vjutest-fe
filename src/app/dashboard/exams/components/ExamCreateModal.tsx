@@ -12,6 +12,7 @@ import { chapterService } from '@/services/chapterService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import api from '@/services/axios';
 
 interface Subject {
   id: number;
@@ -59,11 +60,11 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
-  const [visibility, setVisibility] = useState('PUBLIC');
+  const [visibility, setVisibility] = useState<string>('');
   const [name, setName] = useState('');
+  const [examCode, setExamCode] = useState('');
   const [description, setDescription] = useState('');
   const [durationTime, setDurationTime] = useState(60);
-  const [passScore, setPassScore] = useState(5);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [majors, setMajors] = useState<Major[]>([]);
@@ -78,11 +79,11 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
       const fetchData = async () => {
         try {
           const [departmentsData, majorsData] = await Promise.all([
-            departmentService.getAllDepartments(),
-            majorService.getAllMajors()
+            api.get('/departments/all'),
+            api.get('/majors/all')
           ]);
-          setDepartments(departmentsData);
-          setMajors(majorsData);
+          setDepartments(departmentsData.data);
+          setMajors(majorsData.data);
         } catch (error) {
           toast.error('Không thể tải danh sách khoa và ngành');
         }
@@ -95,17 +96,18 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        let allSubjects = await subjectService.getAllSubjects();
+        const response = await api.get('/subjects/all');
+        let allSubjects = response.data;
         
         // Lọc subjects theo phạm vi
         if (visibility === 'DEPARTMENT' && selectedDepartments.length > 0) {
-          allSubjects = allSubjects.filter(s => 
-            s.departmentIds && s.departmentIds.some(id => selectedDepartments.includes(id))
+          allSubjects = allSubjects.filter((s: Subject) => 
+            s.departmentIds && s.departmentIds.some((id: number) => selectedDepartments.includes(id))
           );
         }
         if (visibility === 'MAJOR' && selectedMajors.length > 0) {
-          allSubjects = allSubjects.filter(s => 
-            s.majorIds && s.majorIds.some(id => selectedMajors.includes(id))
+          allSubjects = allSubjects.filter((s: Subject) => 
+            s.majorIds && s.majorIds.some((id: number) => selectedMajors.includes(id))
           );
         }
         
@@ -115,40 +117,53 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
       }
     };
 
-    if (visibility === 'PUBLIC' || 
-        (visibility === 'DEPARTMENT' && selectedDepartments.length > 0) ||
-        (visibility === 'MAJOR' && selectedMajors.length > 0)) {
+    if (visibility === 'PUBLIC') {
+      fetchSubjects();
+    } else if (visibility === 'DEPARTMENT' && selectedDepartments.length > 0) {
+      fetchSubjects();
+    } else if (visibility === 'MAJOR' && selectedMajors.length > 0) {
       fetchSubjects();
     } else {
       setSubjects([]);
     }
     setSelectedSubject(null);
+    setSelectedChapter(null);
   }, [visibility, selectedDepartments, selectedMajors]);
 
   // Load chapters khi chọn subject
   useEffect(() => {
     if (selectedSubject) {
-      fetchChapters(selectedSubject);
+      const fetchChapters = async () => {
+        try {
+          const response = await api.get(`/chapters/subject/${selectedSubject}/all`);
+          
+          if (Array.isArray(response.data)) {
+            setChapters(response.data);
+          } else {
+            console.error('Invalid chapters data format:', response.data);
+            toast.error('Dữ liệu chương học không hợp lệ');
+          }
+        } catch (error: any) {
+          console.error('Error fetching chapters:', error);
+          if (error.response?.status === 403) {
+            toast.error('Bạn không có quyền truy cập danh sách chương của môn học này. Vui lòng kiểm tra lại phạm vi truy cập của môn học.');
+            return;
+          }
+          toast.error('Không thể tải danh sách chương');
+        }
+      };
+      fetchChapters();
     } else {
       setChapters([]);
     }
     setSelectedChapter(null);
   }, [selectedSubject]);
 
-  const fetchChapters = async (subjectId: number) => {
-    try {
-      const data = await chapterService.getChapters(subjectId.toString());
-      setChapters(data.map((c: any) => ({ ...c, id: Number(c.id) })));
-    } catch (error) {
-      toast.error('Không thể tải danh sách chương');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
-    if (!selectedSubject || !selectedChapter || !name || !durationTime) {
+    if (!selectedSubject || !selectedChapter || !name || !durationTime || !examCode) {
       toast.error('Vui lòng nhập đầy đủ thông tin');
       return;
     }
@@ -172,35 +187,30 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
       if (visibility === 'MAJOR' && selectedMajors.length > 0) {
         query += selectedMajors.map(id => `&majorIds=${id}`).join('');
       }
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/exams/create-without-class?${query}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          durationTime,
-          passScore,
-          visibility,
-          isPublic: true,
-          status: 'DRAFT',
-          maxAttempts: 1,
-          randomQuestions: false,
-          startAt: null,
-          endAt: null
-        }),
+
+      const response = await api.post(`/exams/create-without-class?${query}`, {
+        name,
+        examCode,
+        description,
+        durationTime,
+        visibility,
+        isPublic: true,
+        status: 'DRAFT',
+        maxAttempts: 1,
+        randomQuestions: false,
+        startAt: null,
+        endAt: null
       });
-      
-      if (!res.ok) throw new Error('Tạo bài kiểm tra thất bại');
       
       toast.success('Tạo bài kiểm tra thành công!');
       onCreated();
       onClose();
-    } catch (err: any) {
-      toast.error(err.message || 'Có lỗi xảy ra');
+    } catch (error: any) {
+      if (error.response?.status === 403) {
+        toast.error('Bạn không có quyền tạo bài kiểm tra');
+        return;
+      }
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
     } finally {
       setLoading(false);
     }
@@ -210,6 +220,14 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
   const filteredMajors = selectedDepartments.length > 0 
     ? majors.filter(m => selectedDepartments.includes(m.departmentId))
     : majors;
+
+  const handleVisibilityChange = (value: string) => {
+    setVisibility(value);
+    setSelectedDepartments([]);
+    setSelectedMajors([]);
+    setSelectedSubject(null);
+    setSelectedChapter(null);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -230,6 +248,22 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
                 disabled={loading} 
               />
             </div>
+            <div>
+              <Label>Mã bài kiểm tra</Label>
+              <Input 
+                value={examCode} 
+                onChange={e => setExamCode(e.target.value)} 
+                required 
+                disabled={loading}
+                placeholder="VD: 2024-001" 
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Mã bài kiểm tra sẽ tự động thêm tiền tố "E-"
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Thời gian (phút)</Label>
               <Input 
@@ -252,37 +286,24 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Điểm qua</Label>
-              <Input 
-                type="number" 
-                min={1} 
-                value={passScore} 
-                onChange={e => setPassScore(Number(e.target.value))} 
-                required 
-                disabled={loading} 
-              />
-            </div>
-            <div>
-              <Label>Phạm vi</Label>
-              <Select 
-                value={visibility} 
-                onValueChange={setVisibility}
-                disabled={loading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn phạm vi" />
-                </SelectTrigger>
-                <SelectContent>
-                  {visibilityOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Phạm vi</Label>
+            <Select 
+              value={visibility} 
+              onValueChange={handleVisibilityChange}
+              disabled={loading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn phạm vi" />
+              </SelectTrigger>
+              <SelectContent>
+                {visibilityOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Chọn khoa/ngành */}
@@ -371,47 +392,49 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
           )}
 
           {/* Chọn môn học và chương */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Môn học</Label>
-              <Select 
-                value={selectedSubject?.toString() || ''} 
-                onValueChange={v => setSelectedSubject(Number(v))} 
-                disabled={subjects.length === 0 || loading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn môn học" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map(sub => (
-                    <SelectItem key={sub.id} value={sub.id.toString()}>
-                      {sub.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {visibility && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Môn học</Label>
+                <Select 
+                  value={selectedSubject?.toString() || ''} 
+                  onValueChange={v => setSelectedSubject(Number(v))} 
+                  disabled={subjects.length === 0 || loading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn môn học" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map(sub => (
+                      <SelectItem key={sub.id} value={sub.id.toString()}>
+                        {sub.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <Label>Chương</Label>
-              <Select 
-                value={selectedChapter?.toString() || ''} 
-                onValueChange={v => setSelectedChapter(Number(v))} 
-                disabled={loading || !selectedSubject}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn chương" />
-                </SelectTrigger>
-                <SelectContent>
-                  {chapters.map(chap => (
-                    <SelectItem key={chap.id} value={chap.id.toString()}>
-                      {chap.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div>
+                <Label>Chương</Label>
+                <Select 
+                  value={selectedChapter?.toString() || ''} 
+                  onValueChange={v => setSelectedChapter(Number(v))} 
+                  disabled={loading || !selectedSubject}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn chương" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chapters.map(chap => (
+                      <SelectItem key={chap.id} value={chap.id.toString()}>
+                        {chap.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>

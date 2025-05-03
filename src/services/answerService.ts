@@ -1,8 +1,6 @@
-import axios from 'axios'
+import api from './axios'
 import { authService } from './authService'
 import { API_URL } from './config'
-
-axios.defaults.baseURL = 'http://localhost:8080'
 
 export interface Answer {
   id: number
@@ -34,45 +32,34 @@ export interface CreateAnswerData {
 export const answerService = {
   async getAnswersByQuestion(questionId: number): Promise<Answer[]> {
     try {
-      const token = await authService.getValidToken()
-      const response = await axios.get(`${API_URL}/answers/by-question/${questionId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await api.get(`/answers/by-question/${questionId}`)
       return response.data
     } catch (error: any) {
+      if (error.response?.status === 403) {
+        throw new Error('Bạn không có quyền truy cập danh sách đáp án này')
+      }
+      if (error.response?.status === 404) {
+        throw new Error('Không tìm thấy câu hỏi')
+      }
       console.error('Error fetching answers:', error)
-      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách đáp án')
+      throw error
     }
   },
 
   async createAnswers(questionId: number, formData: FormData): Promise<Answer[]> {
     try {
-      const token = await authService.getValidToken()
-      console.log('Creating answers with token:', token)
-      console.log('FormData contents:', {
-        answers: formData.get('answers'),
-        imageFiles: formData.get('imageFiles'),
-        questionId
-      })
-      
-      const response = await axios.post(`${API_URL}/answers/create?questionId=${questionId}`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      return response.data
+      const response = await api.upload(`/answers/create?questionId=${questionId}`, formData);
+      return response.data;
     } catch (error: any) {
-      console.error('Error creating answers:', error)
-      console.error('Error response:', error.response?.data)
-      throw new Error(error.response?.data?.message || 'Không thể tạo đáp án')
+      console.error('Error creating answers:', error);
+      throw new Error(error.response?.data?.message || 'Không thể tạo đáp án');
     }
   },
 
   async updateAnswer(id: number, formData: FormData, questionId: number): Promise<Answer> {
     try {
       const token = await authService.getValidToken()
-      const response = await axios.put(`${API_URL}/answers/update/${id}?questionId=${questionId}`, formData, {
+      const response = await api.put(`${API_URL}/answers/update/${id}?questionId=${questionId}`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -88,7 +75,7 @@ export const answerService = {
   async deleteAnswer(id: number): Promise<void> {
     try {
       const token = await authService.getValidToken()
-      await axios.delete(`${API_URL}/answers/delete/${id}`, {
+      await api.delete(`${API_URL}/answers/delete/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
     } catch (error: any) {
@@ -99,25 +86,11 @@ export const answerService = {
 
   async createSingleAnswer(questionId: number, formData: FormData): Promise<Answer> {
     try {
-      const token = await authService.getValidToken()
-      console.log('Creating single answer with token:', token)
-      console.log('FormData contents:', {
-        answer: formData.get('answer'),
-        imageFile: formData.get('imageFile'),
-        questionId
-      })
-      
-      const response = await axios.post(`${API_URL}/answers/create-single?questionId=${questionId}`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      return response.data
+      const response = await api.upload(`/answers/create-single?questionId=${questionId}`, formData);
+      return response.data;
     } catch (error: any) {
-      console.error('Error creating answer:', error)
-      console.error('Error response:', error.response?.data)
-      throw new Error(error.response?.data?.message || 'Không thể tạo đáp án')
+      console.error('Error creating answer:', error);
+      throw new Error(error.response?.data?.message || 'Không thể tạo đáp án');
     }
   },
 }

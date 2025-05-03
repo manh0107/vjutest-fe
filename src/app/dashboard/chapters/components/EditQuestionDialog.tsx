@@ -60,9 +60,13 @@ export function EditQuestionDialog({
         try {
           const data = await answerService.getAnswersByQuestion(question.id)
           setAnswers(data)
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error loading answers:', error)
-          toast.error('Không thể tải danh sách đáp án')
+          const errorMessage = error.response?.status === 403 
+            ? 'Bạn không có quyền truy cập danh sách đáp án'
+            : 'Không thể tải danh sách đáp án'
+          setError(errorMessage)
+          toast.error(errorMessage)
         }
       }
       loadAnswers()

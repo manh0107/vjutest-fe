@@ -1,10 +1,18 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { authService } from './authService';
+
+interface CustomAxiosInstance extends AxiosInstance {
+  upload: (url: string, formData: FormData) => Promise<any>;
+  download: (url: string, filename: string) => Promise<void>;
+}
 
 const api = axios.create({
   baseURL: 'http://localhost:8080',
-  withCredentials: true
-});
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+}) as CustomAxiosInstance;
 
 // Request interceptor
 api.interceptors.request.use(
@@ -49,8 +57,68 @@ api.interceptors.response.use(
       }
     }
 
+    // Handle other errors
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      const status = error.response.status;
+      const message = error.response.data?.message || 'Có lỗi xảy ra';
+
+      switch (status) {
+        case 400:
+          console.error('Bad Request:', message);
+          break;
+        case 403:
+          console.error('Forbidden:', message);
+          break;
+        case 404:
+          console.error('Not Found:', message);
+          break;
+        case 500:
+          console.error('Server Error:', message);
+          break;
+        default:
+          console.error('Error:', message);
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('No response received:', error.request);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('Error setting up request:', error.message);
+    }
+
     return Promise.reject(error);
   }
 );
+
+// Helper function to handle file uploads
+api.upload = async (url: string, formData: FormData) => {
+  const token = await authService.getValidToken();
+  return api.post(url, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      Authorization: `Bearer ${token}`
+    }
+  });
+};
+
+// Helper function to handle file downloads
+api.download = async (url: string, filename: string) => {
+  const token = await authService.getValidToken();
+  const response = await api.get(url, {
+    responseType: 'blob',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  
+  const blob = new Blob([response.data]);
+  const link = document.createElement('a');
+  link.href = window.URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  window.URL.revokeObjectURL(link.href);
+};
 
 export default api; 

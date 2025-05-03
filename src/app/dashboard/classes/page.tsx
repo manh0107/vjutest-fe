@@ -57,7 +57,7 @@ export default function ClassesPage() {
     try {
       setLoading(true)
       setError(null)
-      const data = await classService.getClasses()
+      const data = await classService.getAllClasses()
       setClasses(data)
     } catch (error) {
       setError('Không thể tải danh sách lớp học. Vui lòng kiểm tra kết nối hoặc thử lại sau.')

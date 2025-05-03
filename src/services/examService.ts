@@ -1,6 +1,4 @@
-import axios from 'axios'
-
-const API_URL = 'http://localhost:8080'
+import api from './axios'
 
 // Cache for storing API responses
 const responseCache = new Map<string, { data: any; timestamp: number }>()
@@ -18,6 +16,11 @@ const getFromCache = (key: string) => {
 // Helper function to set cache
 const setCache = (key: string, data: any) => {
   responseCache.set(key, { data, timestamp: Date.now() })
+}
+
+// Helper function to clear cache
+const clearCache = () => {
+  responseCache.clear()
 }
 
 export interface Question {
@@ -59,6 +62,9 @@ export interface CreateExamData {
   durationTime: number
   passScore: number
   isPublic: boolean
+  visibility?: 'PUBLIC' | 'DEPARTMENT' | 'MAJOR'
+  departmentIds?: number[]
+  majorIds?: number[]
 }
 
 export interface UpdateExamData extends CreateExamData {
@@ -93,198 +99,109 @@ export const examService = {
     }
 
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.get(`${API_URL}/exams/public-exams/${subjectId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
+      const response = await api.get(`/exams/public-exams/${subjectId}`)
       setCache(cacheKey, response.data)
       return response.data
     } catch (error: any) {
-      if (error.response?.status === 401) {
-        throw new Error('Phiên đăng nhập đã hết hạn')
-      }
-      if (error.response?.status === 403) {
-        throw new Error('Bạn không có quyền truy cập')
-      }
       throw new Error(error.response?.data?.message || 'Không thể lấy danh sách bài kiểm tra')
     }
   },
 
   // Lấy danh sách bài kiểm tra trong lớp học
-  async getClassExams(classId: number, subjectId: number, userId: number): Promise<Exam[]> {
-    const cacheKey = `class-exams-${classId}-${subjectId}-${userId}`
+  async getClassExams(classId: number, subjectId: number): Promise<Exam[]> {
+    const cacheKey = `class-exams-${classId}-${subjectId}`
     const cachedData = getFromCache(cacheKey)
     if (cachedData) {
       return cachedData
     }
 
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.get(`${API_URL}/exams/class/${classId}/subject/${subjectId}/user/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
+      const response = await api.get(`/exams/class/${classId}?subjectId=${subjectId}`)
       setCache(cacheKey, response.data)
       return response.data
     } catch (error: any) {
-      if (error.response?.status === 401) {
-        throw new Error('Phiên đăng nhập đã hết hạn')
-      }
-      if (error.response?.status === 403) {
-        throw new Error('Bạn không có quyền truy cập')
-      }
       throw new Error(error.response?.data?.message || 'Không thể lấy danh sách bài kiểm tra')
     }
   },
 
   // Tạo bài kiểm tra công khai
-  async createPublicExam(subjectId: number, userId: number, examData: CreateExamData): Promise<Exam> {
+  async createPublicExam(subjectId: number, examData: CreateExamData, departmentIds?: number[], majorIds?: number[]): Promise<Exam> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.post(
-        `${API_URL}/exams/create/subject/${subjectId}/user/${userId}`,
-        examData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
+      const response = await api.post(`/exams/create-without-class?subjectId=${subjectId}${departmentIds ? `&departmentIds=${departmentIds.join(',')}` : ''}${majorIds ? `&majorIds=${majorIds.join(',')}` : ''}`, examData)
+      clearCache() // Xóa cache sau khi tạo bài kiểm tra thành công
       return response.data
     } catch (error: any) {
-      console.error('Lỗi khi tạo bài kiểm tra:', error)
       throw new Error(error.response?.data?.message || 'Không thể tạo bài kiểm tra')
     }
   },
 
   // Tạo bài kiểm tra trong lớp học
-  async createClassExam(classId: number, subjectId: number, userId: number, examData: CreateExamData): Promise<Exam> {
+  async createClassExam(classId: number, subjectId: number, examData: CreateExamData): Promise<Exam> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.post(
-        `${API_URL}/exams/create/class/${classId}/subject/${subjectId}/user/${userId}`,
-        examData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
+      const response = await api.post(`/exams/create?classId=${classId}&subjectId=${subjectId}`, examData)
+      clearCache() // Xóa cache sau khi tạo bài kiểm tra thành công
       return response.data
     } catch (error: any) {
-      console.error('Lỗi khi tạo bài kiểm tra:', error)
       throw new Error(error.response?.data?.message || 'Không thể tạo bài kiểm tra')
     }
   },
 
-  // Lấy chi tiết bài kiểm tra
-  async getExamById(examId: number, userId: number): Promise<Exam> {
+  // Lấy thông tin bài kiểm tra theo ID
+  async getExamById(examId: number): Promise<Exam> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.get(`${API_URL}/exams/${examId}/user/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const response = await api.get(`/exams/find/${examId}`)
       return response.data
     } catch (error: any) {
-      console.error('Lỗi khi lấy thông tin bài kiểm tra:', error)
       throw new Error(error.response?.data?.message || 'Không thể lấy thông tin bài kiểm tra')
     }
   },
 
-  async getExams(classId: number): Promise<Exam[]> {
-    const response = await axios.get(`${API_URL}/classes/${classId}/exams`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    return response.data
+  // Cập nhật trạng thái bài kiểm tra
+  async updateExamStatus(examId: number, status: 'DRAFT' | 'PUBLISHED' | 'CLOSED', startAt?: string, endAt?: string): Promise<Exam> {
+    try {
+      const response = await api.put(`/exams/${examId}/status`, { newStatus: status, startAt, endAt })
+      return response.data
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể cập nhật trạng thái bài kiểm tra')
+    }
   },
 
-  async getExam(examId: number): Promise<Exam> {
-    const response = await axios.get(`${API_URL}/exams/${examId}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    return response.data
-  },
-
-  async createExam(data: CreateExamData): Promise<Exam> {
-    const response = await axios.post(`${API_URL}/exams`, data, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    return response.data
-  },
-
+  // Cập nhật bài kiểm tra
   async updateExam(examId: number, data: UpdateExamData): Promise<Exam> {
-    const response = await axios.put(`${API_URL}/exams/${examId}`, data, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    return response.data
+    try {
+      const response = await api.put(`/exams/update/${examId}`, data)
+      return response.data
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể cập nhật bài kiểm tra')
+    }
   },
 
+  // Xóa bài kiểm tra
   async deleteExam(examId: number): Promise<void> {
-    await axios.delete(`${API_URL}/exams/${examId}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
+    try {
+      await api.delete(`/exams/delete/${examId}`)
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể xóa bài kiểm tra')
+    }
   },
 
+  // Nộp bài kiểm tra
   async submitExam(submission: ExamSubmission): Promise<ExamResult> {
-    const response = await axios.post(
-      `${API_URL}/exams/${submission.examId}/submit`,
-      submission,
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      }
-    )
-    return response.data
+    try {
+      const response = await api.post(`/exams/submit-exam/${submission.examId}`, submission)
+      return response.data
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể nộp bài kiểm tra')
+    }
   },
 
+  // Lấy kết quả bài kiểm tra
   async getExamResults(examId: number): Promise<ExamResult[]> {
-    const response = await axios.get(`${API_URL}/exams/${examId}/results`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    })
-    return response.data
-  },
+    try {
+      const response = await api.get(`/exams/results/${examId}`)
+      return response.data
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể lấy kết quả bài kiểm tra')
+    }
+  }
 } 

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { User } from './types'
+import type { User as UserType } from './types'
 import { jwtDecode } from 'jwt-decode'
 
 const API_URL = 'http://localhost:8080'
@@ -34,7 +34,7 @@ interface JwtPayload {
 export interface LoginResponse {
   token: string
   message: string
-  user?: User
+  user?: UserType
 }
 
 export interface LoginCredentials {

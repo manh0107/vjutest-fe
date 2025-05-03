@@ -1,5 +1,5 @@
 import { User } from './types'
-import { axiosInstance } from './axiosInstance'
+import api from './axios'
 
 interface CreateUserRequest {
   name?: string;
@@ -18,31 +18,31 @@ interface CreateUserRequest {
 export const userService = {
   // Get all users
   getUsers: async () => {
-    const response = await axiosInstance.get('/users/all')
+    const response = await api.get('/users/all')
     return response.data
   },
 
   // Get current user
   getCurrentUser: async () => {
-    const response = await axiosInstance.get('/auth/me')
+    const response = await api.get('/auth/me')
     return response.data
   },
 
   // Get user by ID
   getUserById: async (id: number) => {
-    const response = await axiosInstance.get(`/users/find/${id}`)
+    const response = await api.get(`/users/find/${id}`)
     return response.data
   },
 
   // Create new user
   createUser: async (userData: CreateUserRequest, userId: number) => {
-    const response = await axiosInstance.post(`/users/create?userId=${userId}`, userData)
+    const response = await api.post(`/users/create?userId=${userId}`, userData)
     return response.data
   },
 
   // Update user
   updateUser: async (id: number, data: FormData | any, userId: number, config?: any) => {
-    const response = await axiosInstance.put(`/users/update/${id}`, data, {
+    const response = await api.put(`/users/update/${id}`, data, {
       ...config,
       headers: {
         ...config?.headers,
@@ -54,37 +54,37 @@ export const userService = {
 
   // Delete user
   deleteUser: async (id: number) => {
-    const response = await axiosInstance.delete(`/users/delete/${id}`)
+    const response = await api.delete(`/users/delete/${id}`)
     return response.data
   },
 
   // Get classes created by user
   getUserCreatedClasses: async (userId: number) => {
-    const response = await axiosInstance.get(`/users/${userId}/created-classes`)
+    const response = await api.get(`/users/${userId}/created-classes`)
     return response.data
   },
 
   // Get subjects created by user
   getUserCreatedSubjects: async (userId: number) => {
-    const response = await axiosInstance.get(`/users/${userId}/created-subjects`)
+    const response = await api.get(`/users/${userId}/created-subjects`)
     return response.data
   },
 
   // Get exams created by user
   getUserCreatedExams: async (userId: number) => {
-    const response = await axiosInstance.get(`/users/${userId}/created-exams`)
+    const response = await api.get(`/users/${userId}/created-exams`)
     return response.data
   },
 
   // Get questions created by user
   getUserCreatedQuestions: async (userId: number) => {
-    const response = await axiosInstance.get(`/users/${userId}/created-questions`)
+    const response = await api.get(`/users/${userId}/created-questions`)
     return response.data
   },
 
   // Get classes where user is teaching
   getTeacherClasses: async (userId: number) => {
-    const response = await axiosInstance.get(`/users/${userId}/teaching-classes`)
+    const response = await api.get(`/users/${userId}/teaching-classes`)
     return response.data
   }
 } 

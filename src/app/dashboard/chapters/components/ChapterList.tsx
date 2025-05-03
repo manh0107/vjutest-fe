@@ -1,6 +1,6 @@
 import { Chapter } from '@/services/chapterService'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, ChevronDown } from 'lucide-react'
+import { Pencil, Trash2, ChevronDown, Check, X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useState } from 'react'
 import Collapse from '@mui/material/Collapse'
@@ -18,36 +18,29 @@ import { toast } from 'sonner'
 
 interface ChapterListProps {
   chapters: Chapter[]
-  loading: boolean
+  onChapterClick: (chapter: Chapter) => void
   onEdit: (chapter: Chapter) => void
   onDelete: (chapter: Chapter) => void
-  onChapterClick: (chapter: Chapter) => void
 }
 
-export function ChapterList({
-  chapters,
-  loading,
-  onEdit,
-  onDelete,
-  onChapterClick
-}: ChapterListProps) {
+export const ChapterList: React.FC<ChapterListProps> = ({ chapters, onChapterClick, onEdit, onDelete }) => {
   const [expandedChapterId, setExpandedChapterId] = useState<number | null>(null)
+  const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null)
   const [questions, setQuestions] = useState<Record<number, Question[]>>({})
+  const [answers, setAnswers] = useState<Record<number, Answer[]>>({})
   const [loadingQuestions, setLoadingQuestions] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null)
-  const [answers, setAnswers] = useState<Record<number, Answer[]>>({})
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null)
-  const QUESTIONS_PER_PAGE = 5
   const [questionForm, setQuestionForm] = useState({ name: '', difficulty: 1 })
-  const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const QUESTIONS_PER_PAGE = 5
 
   const handleExpandChapter = async (chapterId: number | string) => {
-    const id = Number(chapterId)
+    const id = typeof chapterId === 'string' ? parseInt(chapterId, 10) : chapterId
     if (expandedChapterId === id) {
       setExpandedChapterId(null)
       setSearch('')
@@ -71,7 +64,7 @@ export function ChapterList({
   }
 
   const handleExpandQuestion = async (questionId: number | string) => {
-    const id = Number(questionId)
+    const id = typeof questionId === 'string' ? parseInt(questionId, 10) : questionId
     if (expandedQuestionId === id) {
       setExpandedQuestionId(null)
       return
@@ -81,8 +74,9 @@ export function ChapterList({
       try {
         const data = await answerService.getAnswersByQuestion(id)
         setAnswers(prev => ({ ...prev, [id]: data }))
-      } catch {
-        // handle error
+      } catch (error: any) {
+        console.error('Error loading answers:', error)
+        toast.error(error.message || 'Không thể tải danh sách đáp án')
       }
     }
   }
@@ -105,7 +99,7 @@ export function ChapterList({
       setQuestionForm({ name: '', difficulty: 1 })
       setIsCreateModalOpen(false)
       // Reload questions for this chapter
-      const data = await questionService.getQuestionsByChapter(Number(chapterId))
+      const data = await questionService.getQuestionsByChapter(chapterId)
       setQuestions(prev => ({ ...prev, [chapterId]: data }))
     } catch (e) {
       setCreateError('Không thể tạo câu hỏi')
@@ -186,162 +180,183 @@ export function ChapterList({
                 }}
                 title="Xem câu hỏi của chương"
               >
-                <ChevronDown className={`h-5 w-5 transition-transform ${expandedChapterId === Number(chapter.id) ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`transform transition-transform ${expandedChapterId === Number(chapter.id) ? 'rotate-180' : ''}`} />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation()
                   onEdit(chapter)
                 }}
+                title="Sửa chương"
               >
-                <Pencil className="h-4 w-4 text-black" />
+                <Pencil className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation()
                   onDelete(chapter)
                 }}
+                title="Xóa chương"
               >
-                <Trash2 className="h-4 w-4 text-red-500" />
+                <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <Collapse in={expandedChapterId === Number(chapter.id)} timeout="auto" unmountOnExit>
-            <div className="bg-gray-50 border rounded-b-lg p-4">
+          <Collapse in={expandedChapterId === Number(chapter.id)}>
+            <div className="mt-2 p-4 bg-gray-50 rounded-lg">
+              <div className="flex justify-between items-center mb-4">
+                <Input
+                  placeholder="Tìm kiếm câu hỏi..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button onClick={() => setIsCreateModalOpen(true)}>
+                  Thêm câu hỏi
+                </Button>
+              </div>
               {loadingQuestions === Number(chapter.id) ? (
-                <div>Đang tải câu hỏi...</div>
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
               ) : (
-                <>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Input
-                      placeholder="Tìm kiếm câu hỏi..."
-                      value={search}
-                      onChange={e => { setSearch(e.target.value); setCurrentPage(1) }}
-                      className="w-64"
-                    />
-                    <Button onClick={() => setIsCreateModalOpen(true)}>
-                      Thêm câu hỏi
-                    </Button>
-                  </div>
-                  {/* Danh sách câu hỏi, phân trang, xổ đáp án */}
-                  {questions[Number(chapter.id)] && questions[Number(chapter.id)].length > 0 ? (
-                    <>
-                      {questions[Number(chapter.id)]
-                        .filter(q => q.name.toLowerCase().includes(search.toLowerCase()))
-                        .slice((currentPage-1)*QUESTIONS_PER_PAGE, currentPage*QUESTIONS_PER_PAGE)
-                        .map(q => (
-                          <div key={q.id}>
-                            <div className="border rounded mb-2 flex items-center justify-between p-2">
-                              <div className="flex-1 flex items-center gap-2">
-                                {q.imageUrl && (
-                                  <img src={q.imageUrl} alt="question" className="h-8 w-8 object-cover rounded mr-2" />
+                <div className="space-y-2">
+                  {questions[Number(chapter.id)]?.filter((q: Question) => 
+                    q.name.toLowerCase().includes(search.toLowerCase())
+                  ).slice(
+                    (currentPage - 1) * QUESTIONS_PER_PAGE,
+                    currentPage * QUESTIONS_PER_PAGE
+                  ).map((question: Question) => (
+                    <div key={question.id} className="bg-white p-4 rounded-lg shadow">
+                      <div className="flex items-start gap-4">
+                        {question.imageUrl && (
+                          <div className="relative group flex-shrink-0">
+                            <div className="overflow-hidden rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                              <img 
+                                src={question.imageUrl} 
+                                alt="Câu hỏi" 
+                                className="w-20 h-20 object-contain object-center transition-transform duration-300 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                            </div>
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 rounded-lg" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{question.name}</p>
+                            {question.isCompleted ? (
+                              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                Đã hoàn thành
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                                Chưa hoàn thành
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500">Độ khó: {question.difficulty}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleExpandQuestion(question.id)}
+                            title="Xem đáp án"
+                          >
+                            <ExpandMoreIcon className={`transform transition-transform ${expandedQuestionId === Number(question.id) ? 'rotate-180' : ''}`} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditQuestion(question)}
+                            title="Sửa câu hỏi"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <Collapse in={expandedQuestionId === Number(question.id)}>
+                        <div className="mt-2 pl-4 border-l-2 border-gray-200">
+                          {answers[Number(question.id)]?.map((answer: Answer) => (
+                            <div key={answer.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 py-2">
+                              <div className="flex items-center gap-2 w-full">
+                                {answer.imageUrl && (
+                                  <div className="relative group flex-shrink-0">
+                                    <div className="overflow-hidden rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                                      <img 
+                                        src={answer.imageUrl} 
+                                        alt="Đáp án" 
+                                        className="w-14 h-14 object-contain object-center transition-transform duration-300 group-hover:scale-105"
+                                        loading="lazy"
+                                      />
+                                    </div>
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 rounded-lg" />
+                                  </div>
                                 )}
-                                <span>{q.name}</span>
-                                {q.isCompleted ? (
-                                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-semibold">Đã hoàn thành</span>
-                                ) : (
-                                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-gray-200 text-gray-600">Chưa hoàn thành</span>
-                                )}
-                              </div>
-                              <div className="flex gap-1 items-center ml-2">
-                                <Button size="icon" variant="ghost" onClick={() => handleExpandQuestion(q.id)}>
-                                  <ExpandMoreIcon className={`transition-transform ${expandedQuestionId === Number(q.id) ? 'rotate-180' : ''}`} />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => handleEditQuestion(q)}
-                                >
-                                  <Pencil className="h-4 w-4 text-black" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm('Bạn có chắc chắn muốn xóa câu hỏi này?')) {
-                                      try {
-                                        await questionService.deleteQuestion(Number(q.id));
-                                        // Reload questions for this chapter
-                                        const data = await questionService.getQuestionsByChapter(Number(chapter.id));
-                                        setQuestions(prev => ({ ...prev, [chapter.id]: data }));
-                                        toast.success('Xóa câu hỏi thành công');
-                                      } catch (error) {
-                                        toast.error('Không thể xóa câu hỏi');
-                                      }
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    checked={answer.isCorrect}
+                                    readOnly
+                                    className="h-4 w-4"
+                                  />
+                                  <span className="font-medium">{answer.answerName}</span>
+                                  {answer.isCorrect ? (
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <X className="h-4 w-4 text-red-500" />
+                                  )}
+                                </div>
                               </div>
                             </div>
-                            <Collapse in={expandedQuestionId === Number(q.id)} timeout="auto" unmountOnExit>
-                              <div className="pl-4 pb-2">
-                                {answers[Number(q.id)] ? (
-                                  <ul className="space-y-2">
-                                    {answers[Number(q.id)].map(ans => (
-                                      <li key={ans.id} className="flex items-center gap-2">
-                                        {ans.imageUrl && (
-                                          <img src={ans.imageUrl} alt="answer" className="h-6 w-6 object-cover rounded mr-1" />
-                                        )}
-                                        <span className={ans.isCorrect ? 'font-semibold text-green-600' : ''}>{ans.answerName}</span>
-                                        {ans.isCorrect && <span className="text-xs text-green-600">(Đúng)</span>}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <div>Đang tải đáp án...</div>
-                                )}
-                              </div>
-                            </Collapse>
-                          </div>
-                        ))}
-                      <div className="flex justify-center mt-2">
-                        <Pagination
-                          count={Math.ceil(questions[Number(chapter.id)].filter(q => q.name.toLowerCase().includes(search.toLowerCase())).length / QUESTIONS_PER_PAGE)}
-                          page={currentPage}
-                          onChange={(_e, page) => setCurrentPage(page)}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center text-gray-500 py-4">Không có câu hỏi nào</div>
+                          ))}
+                        </div>
+                      </Collapse>
+                    </div>
+                  ))}
+                  {questions[Number(chapter.id)]?.length > QUESTIONS_PER_PAGE && (
+                    <div className="flex justify-center mt-4">
+                      <Pagination
+                        count={Math.ceil(questions[Number(chapter.id)].length / QUESTIONS_PER_PAGE)}
+                        page={currentPage}
+                        onChange={(_, page) => setCurrentPage(page)}
+                      />
+                    </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           </Collapse>
         </div>
       ))}
-      {/* Thêm Dialog popup tạo câu hỏi */}
       <CreateQuestionDialog
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         chapterId={expandedChapterId || 0}
-        onCreated={async () => {
-          // Reload questions for this chapter
+        onCreated={() => {
           if (expandedChapterId) {
-            const data = await questionService.getQuestionsByChapter(expandedChapterId)
-            setQuestions(prev => ({ ...prev, [expandedChapterId]: data }))
+            questionService.getQuestionsByChapter(expandedChapterId)
+              .then(data => setQuestions(prev => ({ ...prev, [expandedChapterId]: data })))
+              .catch(error => console.error('Error loading questions:', error))
           }
         }}
       />
-
-      {/* Dialog chỉnh sửa câu hỏi */}
       {selectedQuestion && (
         <EditQuestionDialog
           open={isEditModalOpen}
-          onOpenChange={handleCloseEditModal}
+          onOpenChange={setIsEditModalOpen}
           question={selectedQuestion}
           onSubmit={handleSubmitEdit}
-          onAnswerChange={handleAnswerDelete}
+          onAnswerChange={handleAnswerChange}
         />
       )}
     </div>
   )
-} 
+}

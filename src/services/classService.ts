@@ -1,29 +1,7 @@
-import axios from 'axios'
+import api from './axios'
+import { authService } from './authService'
 
 const API_URL = 'http://localhost:8080'
-
-// Tạo instance axios với cấu hình mặc định
-const axiosInstance = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
-
-// Thêm interceptor để tự động thêm token vào mỗi request
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token')
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  }
-)
 
 export interface Class {
   id: number
@@ -115,312 +93,179 @@ export interface JoinRequest {
 }
 
 export const classService = {
-  async getClasses(): Promise<Class[]> {
+  async getAllClasses() {
     try {
-      const token = localStorage.getItem('token')
+      const token = await authService.getValidToken();
+      const userResponse = await api.get('/auth/me');
+      const userId = userResponse.data.id;
       
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-      
-      try {
-        const userResponse = await axios.get(`${API_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          withCredentials: true
-        })
-        
-        const userId = userResponse.data.id
-        
-        const response = await axios.get(`${API_URL}/classes/all?userId=${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          withCredentials: true
-        })
-
-        return response.data
-      } catch (error) {
-        return []
-      }
+      const response = await api.get(`/classes/all?userId=${userId}`);
+      return response.data;
     } catch (error) {
-      return []
+      console.error('Error fetching classes:', error);
+      throw error;
     }
   },
 
-  async getClass(id: number): Promise<Class> {
+  async getClassById(id: number) {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.get(`${API_URL}/classes/find/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      return response.data
-    } catch (error: any) {
-      console.error('Lỗi khi lấy thông tin lớp học:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể tải thông tin lớp học')
+      const response = await api.get(`/classes/find/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching class:', error);
+      throw error;
     }
   },
 
-  async createClass(data: CreateClassData): Promise<Class> {
+  async createClass(data: any) {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.post(`${API_URL}/classes/create`, data, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      return response.data
-    } catch (error: any) {
-      console.error('Lỗi khi tạo lớp học:', error.response || error)
-      if (error.response?.status === 403) {
-        throw new Error('Bạn không có quyền tạo lớp học mới')
-      }
-      throw new Error(error.response?.data || 'Không thể tạo lớp học')
+      const response = await api.post('/classes/create', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating class:', error);
+      throw error;
     }
   },
 
-  async updateClass(id: number, data: UpdateClassData): Promise<Class> {
+  async updateClass(id: number, data: any) {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const userResponse = await axios.get(`${API_URL}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        withCredentials: true
-      })
-      
-      const userId = userResponse.data.id
-
-      const response = await axios.put(`${API_URL}/classes/update/${id}?userId=${userId}`, data, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        withCredentials: true
-      })
-      return response.data
-    } catch (error: any) {
-      console.error('Lỗi khi cập nhật lớp học:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể cập nhật lớp học')
+      const response = await api.put(`/classes/update/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating class:', error);
+      throw error;
     }
   },
 
-  async deleteClass(id: number): Promise<void> {
+  async deleteClass(id: number) {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
+      const response = await api.delete(`/classes/delete/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      throw error;
+    }
+  },
 
-      const userResponse = await axios.get(`${API_URL}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        withCredentials: true
-      })
-      
-      const userId = userResponse.data.id
+  async addStudents(classId: number, studentIds: number[]) {
+    try {
+      const response = await api.post(`/classes/${classId}/add-students`, { studentIds });
+      return response.data;
+    } catch (error) {
+      console.error('Error adding students:', error);
+      throw error;
+    }
+  },
 
-      await axios.delete(`${API_URL}/classes/delete/${id}?userId=${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-    } catch (error: any) {
-      console.error('Lỗi khi xóa lớp học:', error.response || error)
-      if (error.response?.status === 403) {
-        throw new Error('Bạn không có quyền xóa lớp học này')
-      }
-      throw new Error(error.response?.data || 'Không thể xóa lớp học')
+  async removeStudents(classId: number, studentIds: number[]) {
+    try {
+      const response = await api.post(`/classes/${classId}/remove-students`, { studentIds });
+      return response.data;
+    } catch (error) {
+      console.error('Error removing students:', error);
+      throw error;
+    }
+  },
+
+  async addSubjects(classId: number, subjectIds: number[]) {
+    try {
+      const response = await api.post(`/classes/${classId}/add-subjects`, { subjectIds });
+      return response.data;
+    } catch (error) {
+      console.error('Error adding subjects:', error);
+      throw error;
+    }
+  },
+
+  async removeSubjects(classId: number, subjectIds: number[]) {
+    try {
+      const response = await api.post(`/classes/${classId}/remove-subjects`, { subjectIds });
+      return response.data;
+    } catch (error) {
+      console.error('Error removing subjects:', error);
+      throw error;
     }
   },
 
   async joinClass(classId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.post(`${API_URL}/classes/request?classId=${classId}`, null, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.post(`/classes/request?classId=${classId}`);
     } catch (error: any) {
-      console.error('Lỗi khi tham gia lớp học:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể tham gia lớp học')
+      console.error('Lỗi khi tham gia lớp học:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể tham gia lớp học');
     }
   },
 
   async leaveClass(classId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.delete(`${API_URL}/classes/${classId}/leave`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.delete(`/classes/${classId}/leave`);
     } catch (error: any) {
-      console.error('Lỗi khi rời khỏi lớp học:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể rời khỏi lớp học')
+      console.error('Lỗi khi rời khỏi lớp học:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể rời khỏi lớp học');
     }
   },
 
   async addStudent(classId: number, userId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.post(`${API_URL}/classes/${classId}/add-student?studentId=${userId}`, null, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.post(`/classes/${classId}/add-student?studentId=${userId}`);
     } catch (error: any) {
-      console.error('Lỗi khi thêm học sinh:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể thêm học sinh')
+      console.error('Lỗi khi thêm học sinh:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể thêm học sinh');
     }
   },
 
   async removeStudent(classId: number, userId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.delete(`${API_URL}/classes/${classId}/remove-student?studentId=${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.delete(`/classes/${classId}/remove-student?studentId=${userId}`);
     } catch (error: any) {
-      console.error('Lỗi khi xóa học sinh:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể xóa học sinh')
+      console.error('Lỗi khi xóa học sinh:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể xóa học sinh');
     }
   },
 
   async inviteTeacher(classId: number, teacherId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.post(`${API_URL}/classes/${classId}/invite-teacher?inviteeId=${teacherId}`, null, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.post(`/classes/${classId}/invite-teacher?inviteeId=${teacherId}`);
     } catch (error: any) {
-      console.error('Lỗi khi mời giáo viên:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể mời giáo viên')
+      console.error('Lỗi khi mời giáo viên:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể mời giáo viên');
     }
   },
 
   async removeTeacher(classId: number, teacherId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.delete(`${API_URL}/classes/${classId}/teachers/${teacherId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.delete(`/classes/${classId}/teachers/${teacherId}`);
     } catch (error: any) {
-      console.error('Lỗi khi xóa giáo viên:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể xóa giáo viên')
+      console.error('Lỗi khi xóa giáo viên:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể xóa giáo viên');
     }
   },
 
   async getJoinRequests(classId: number): Promise<JoinRequest[]> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      const response = await axios.get(`${API_URL}/classes/${classId}/join-requests`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      return response.data
+      const response = await api.get(`/classes/${classId}/join-requests`);
+      return response.data;
     } catch (error: any) {
-      console.error('Lỗi khi lấy danh sách yêu cầu tham gia:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể lấy danh sách yêu cầu tham gia')
+      console.error('Lỗi khi lấy danh sách yêu cầu tham gia:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể lấy danh sách yêu cầu tham gia');
     }
   },
 
   async approveJoinRequest(classId: number, requestId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.post(`${API_URL}/classes/${classId}/join-requests/${requestId}/approve`, null, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.post(`/classes/${classId}/join-requests/${requestId}/approve`);
     } catch (error: any) {
-      console.error('Lỗi khi chấp nhận yêu cầu:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể chấp nhận yêu cầu')
+      console.error('Lỗi khi chấp nhận yêu cầu:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể chấp nhận yêu cầu');
     }
   },
 
   async rejectJoinRequest(classId: number, requestId: number): Promise<void> {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Không tìm thấy token')
-      }
-
-      await axios.post(`${API_URL}/classes/${classId}/join-requests/${requestId}/reject`, null, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await api.post(`/classes/${classId}/join-requests/${requestId}/reject`);
     } catch (error: any) {
-      console.error('Lỗi khi từ chối yêu cầu:', error.response || error)
-      throw new Error(error.response?.data || 'Không thể từ chối yêu cầu')
+      console.error('Lỗi khi từ chối yêu cầu:', error.response || error);
+      throw new Error(error.response?.data || 'Không thể từ chối yêu cầu');
     }
-  },
-}
+  }
+};
