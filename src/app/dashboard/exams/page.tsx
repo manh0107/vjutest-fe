@@ -39,6 +39,18 @@ export default function ExamsPage() {
     }
   }, [activeTab, selectedSubjectId, selectedClassId, user])
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchExams();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeTab, selectedSubjectId, selectedClassId, user]);
+
   const fetchSubjects = async () => {
     try {
       const token = localStorage.getItem('token')
@@ -109,7 +121,7 @@ export default function ExamsPage() {
         data = await examService.getPublicExams(selectedSubjectId)
       } else {
         if (!selectedClassId) return
-        data = await examService.getClassExams(selectedClassId, selectedSubjectId, user.id)
+        data = await examService.getClassExams(selectedClassId, selectedSubjectId)
       }
       setExams(data)
     } catch (error) {
@@ -120,11 +132,6 @@ export default function ExamsPage() {
     }
   }
 
-  const filteredExams = exams.filter(exam =>
-    exam.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exam.examCode.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
   return (
     <Card className="max-w-[1200px] mx-auto">
       <CardHeader>
@@ -132,9 +139,6 @@ export default function ExamsPage() {
         <p className="text-sm text-muted-foreground">
           Xem và quản lý các bài kiểm tra công khai hoặc trong lớp học
         </p>
-        <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
-          Tạo bài kiểm tra ngoài lớp học
-        </Button>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="public" className="space-y-4" onValueChange={setActiveTab}>
@@ -181,28 +185,34 @@ export default function ExamsPage() {
             </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm bài kiểm tra..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tìm kiếm bài kiểm tra..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Button onClick={() => setShowCreateModal(true)}>
+              Tạo bài kiểm tra
+            </Button>
           </div>
 
           <TabsContent value="public" className="m-0">
-            <ExamList exams={filteredExams} loading={loading} />
+            <ExamList exams={exams} loading={loading} activeTab={activeTab} />
           </TabsContent>
 
           <TabsContent value="class" className="m-0">
-            <ExamList exams={filteredExams} loading={loading} />
+            <ExamList exams={exams} loading={loading} activeTab={activeTab} />
           </TabsContent>
         </Tabs>
         <ExamCreateModal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onCreated={fetchExams}
+          isClassExam={activeTab === 'class'}
         />
       </CardContent>
     </Card>

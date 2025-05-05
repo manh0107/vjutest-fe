@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import api from '@/services/axios';
+import { examService } from '@/services/examService';
 
 interface Subject {
   id: number;
@@ -47,6 +48,7 @@ interface ExamCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated: () => void;
+  isClassExam: boolean;
 }
 
 const visibilityOptions = [
@@ -55,21 +57,22 @@ const visibilityOptions = [
   { value: 'MAJOR', label: 'Theo ngành' },
 ];
 
-export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalProps) {
+export function ExamCreateModal({ isOpen, onClose, onCreated, isClassExam }: ExamCreateModalProps) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
-  const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
+  const [selectedChapters, setSelectedChapters] = useState<number[]>([]);
   const [visibility, setVisibility] = useState<string>('');
   const [name, setName] = useState('');
   const [examCode, setExamCode] = useState('');
   const [description, setDescription] = useState('');
-  const [durationTime, setDurationTime] = useState(60);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [majors, setMajors] = useState<Major[]>([]);
   const [selectedDepartments, setSelectedDepartments] = useState<number[]>([]);
   const [selectedMajors, setSelectedMajors] = useState<number[]>([]);
+  const [selectedClass, setSelectedClass] = useState<number | null>(null);
+  const [classes, setClasses] = useState<any[]>([]);
 
   const API_URL = 'http://localhost:8080';
 
@@ -91,6 +94,21 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
       fetchData();
     }
   }, [isOpen]);
+
+  // Load classes when modal opens for class exam
+  useEffect(() => {
+    if (isOpen && isClassExam) {
+      const fetchClasses = async () => {
+        try {
+          const response = await api.get('/classes/all');
+          setClasses(response.data);
+        } catch (error) {
+          toast.error('Không thể tải danh sách lớp học');
+        }
+      };
+      fetchClasses();
+    }
+  }, [isOpen, isClassExam]);
 
   // Load subjects dựa trên visibility và selected departments/majors
   useEffect(() => {
@@ -127,7 +145,7 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
       setSubjects([]);
     }
     setSelectedSubject(null);
-    setSelectedChapter(null);
+    setSelectedChapters([]);
   }, [visibility, selectedDepartments, selectedMajors]);
 
   // Load chapters khi chọn subject
@@ -156,14 +174,14 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
     } else {
       setChapters([]);
     }
-    setSelectedChapter(null);
+    setSelectedChapters([]);
   }, [selectedSubject]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
-    if (!selectedSubject || !selectedChapter || !name || !durationTime || !examCode) {
+    if (!selectedSubject || selectedChapters.length === 0 || !name || !examCode) {
       toast.error('Vui lòng nhập đầy đủ thông tin');
       return;
     }
@@ -180,27 +198,33 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
 
     setLoading(true);
     try {
-      let query = `subjectId=${selectedSubject}`;
-      if (visibility === 'DEPARTMENT' && selectedDepartments.length > 0) {
-        query += selectedDepartments.map(id => `&departmentIds=${id}`).join('');
-      }
-      if (visibility === 'MAJOR' && selectedMajors.length > 0) {
-        query += selectedMajors.map(id => `&majorIds=${id}`).join('');
-      }
-
-      const response = await api.post(`/exams/create-without-class?${query}`, {
+      const examData = {
         name,
         examCode,
         description,
-        durationTime,
-        visibility,
+        visibility: visibility as 'PUBLIC' | 'DEPARTMENT' | 'MAJOR',
         isPublic: true,
         status: 'DRAFT',
         maxAttempts: 1,
         randomQuestions: false,
-        startAt: null,
-        endAt: null
-      });
+        startAt: '',
+        endAt: '',
+        subjectId: selectedSubject,
+        classId: isClassExam ? selectedClass || undefined : undefined,
+        selectedDepartments: visibility === 'DEPARTMENT' ? selectedDepartments : undefined,
+        selectedMajors: visibility === 'MAJOR' ? selectedMajors : undefined,
+        durationTime: 0,
+        passScore: 0,
+        maxScore: 100,
+        questionsCount: 0,
+        chapterIds: selectedChapters
+      };
+
+      if (isClassExam) {
+        await examService.createClassExam(selectedClass!, selectedSubject, examData);
+      } else {
+        await examService.createPublicExam(selectedSubject, examData, selectedDepartments, selectedMajors);
+      }
       
       toast.success('Tạo bài kiểm tra thành công!');
       onCreated();
@@ -226,14 +250,14 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
     setSelectedDepartments([]);
     setSelectedMajors([]);
     setSelectedSubject(null);
-    setSelectedChapter(null);
+    setSelectedChapters([]);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Tạo bài kiểm tra ngoài lớp học</DialogTitle>
+          <DialogTitle>{isClassExam ? 'Tạo bài kiểm tra trong lớp học' : 'Tạo bài kiểm tra ngoài lớp học'}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -260,20 +284,6 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
               <p className="text-sm text-muted-foreground mt-1">
                 Mã bài kiểm tra sẽ tự động thêm tiền tố "E-"
               </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Thời gian (phút)</Label>
-              <Input 
-                type="number" 
-                min={1} 
-                value={durationTime} 
-                onChange={e => setDurationTime(Number(e.target.value))} 
-                required 
-                disabled={loading} 
-              />
             </div>
           </div>
 
@@ -416,22 +426,27 @@ export function ExamCreateModal({ isOpen, onClose, onCreated }: ExamCreateModalP
 
               <div>
                 <Label>Chương</Label>
-                <Select 
-                  value={selectedChapter?.toString() || ''} 
-                  onValueChange={v => setSelectedChapter(Number(v))} 
-                  disabled={loading || !selectedSubject}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn chương" />
-                  </SelectTrigger>
-                  <SelectContent>
+                <ScrollArea className="h-32 border rounded-md p-2">
+                  <div className="space-y-2">
                     {chapters.map(chap => (
-                      <SelectItem key={chap.id} value={chap.id.toString()}>
-                        {chap.name}
-                      </SelectItem>
+                      <div key={chap.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`chapter-${chap.id}`}
+                          checked={selectedChapters.includes(chap.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedChapters(prev => [...prev, chap.id]);
+                            } else {
+                              setSelectedChapters(prev => prev.filter(id => id !== chap.id));
+                            }
+                          }}
+                          disabled={loading || !selectedSubject}
+                        />
+                        <label htmlFor={`chapter-${chap.id}`}>{chap.name}</label>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                </ScrollArea>
               </div>
             </div>
           )}

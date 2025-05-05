@@ -18,9 +18,10 @@ import { toast } from 'sonner'
 
 interface ChapterListProps {
   chapters: Chapter[]
+  loading?: boolean
   onChapterClick: (chapter: Chapter) => void
   onEdit: (chapter: Chapter) => void
-  onDelete: (chapter: Chapter) => void
+  onDelete: (chapter: Chapter) => Promise<void>
 }
 
 export const ChapterList: React.FC<ChapterListProps> = ({ chapters, onChapterClick, onEdit, onDelete }) => {

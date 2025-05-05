@@ -1,4 +1,5 @@
 import api from './axios'
+import { authService } from './authService'
 
 // Cache for storing API responses
 const responseCache = new Map<string, { data: any; timestamp: number }>()
@@ -157,12 +158,25 @@ export const examService = {
   },
 
   // Cập nhật trạng thái bài kiểm tra
-  async updateExamStatus(examId: number, status: 'DRAFT' | 'PUBLISHED' | 'CLOSED', startAt?: string, endAt?: string): Promise<Exam> {
+  async updateExamStatus(
+    examId: number,
+    status: 'DRAFT' | 'PUBLISHED' | 'CLOSED',
+    startAt?: string,
+    endAt?: string,
+    passPercent?: number,
+    durationTime?: number
+  ): Promise<Exam> {
     try {
-      const response = await api.put(`/exams/${examId}/status`, { newStatus: status, startAt, endAt })
-      return response.data
+      const response = await api.put(`/exams/${examId}/status`, {
+        newStatus: status,
+        startAt,
+        endAt,
+        passPercent,
+        durationTime
+      });
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Không thể cập nhật trạng thái bài kiểm tra')
+      throw new Error(error.response?.data?.message || 'Không thể cập nhật trạng thái bài kiểm tra');
     }
   },
 
@@ -203,5 +217,38 @@ export const examService = {
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Không thể lấy kết quả bài kiểm tra')
     }
-  }
+  },
+
+  deleteQuestionFromExam: async (questionId: number, examId: number) => {
+    try {
+      const token = await authService.getValidToken()
+      const user = await authService.getCurrentUser()
+      
+      if (!token || !user) {
+        throw new Error('Authentication required')
+      }
+
+      const response = await api.delete(
+        `/exams/delete-question/${questionId}?examId=${examId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      return response.data
+    } catch (error) {
+      console.error('Error deleting question from exam:', error)
+      throw error
+    }
+  },
+
+  revertToDraft: async (examId: number) => {
+    const token = await authService.getValidToken();
+    const response = await api.put(`/exams/${examId}/to-draft`, null, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
 } 

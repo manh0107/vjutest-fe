@@ -15,9 +15,10 @@ interface AnswerManagementProps {
   onAnswersChange: (answers: Answer[]) => void
   parentDialogOpen: boolean
   onAnswerChange: (questionId: number) => Promise<void>
+  showAnswerImages?: boolean
 }
 
-export function AnswerManagement({ questionId, answers: initialAnswers, onAnswersChange, parentDialogOpen, onAnswerChange }: AnswerManagementProps) {
+export function AnswerManagement({ questionId, answers: initialAnswers, onAnswersChange, parentDialogOpen, onAnswerChange, showAnswerImages = false }: AnswerManagementProps) {
   // State để lưu trạng thái tạm thời
   const [localAnswers, setLocalAnswers] = useState<Answer[]>(initialAnswers)
   const [isCreating, setIsCreating] = useState(false)
@@ -166,28 +167,55 @@ export function AnswerManagement({ questionId, answers: initialAnswers, onAnswer
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor={`${type}Image`}>Hình ảnh (tùy chọn)</Label>
-              <Input
-                id={`${type}Image`}
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null
-                  if (file) {
-                    // Kiểm tra file type
-                    if (!file.type.startsWith('image/')) {
-                      setError('Chỉ được phép tải lên file ảnh!')
-                      return
-                    }
-                    // Kiểm tra file size (ví dụ: max 5MB)
-                    if (file.size > 5 * 1024 * 1024) {
-                      setError('Kích thước file không được vượt quá 5MB!')
-                      return
-                    }
-                  }
-                  setForm({ ...form, image: file })
-                }}
-              />
+              <Label>Hình ảnh đáp án</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-20">
+                  <div className="relative h-full">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        if (file) {
+                          if (!file.type.startsWith('image/')) {
+                            setError('Chỉ được phép tải lên file ảnh!')
+                            return
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            setError('Kích thước file không được vượt quá 5MB!')
+                            return
+                          }
+                        }
+                        setForm({ ...form, image: file })
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div className="h-full flex items-center justify-center border rounded-md bg-muted/50">
+                      <span className="text-sm text-muted-foreground">Chọn ảnh</span>
+                    </div>
+                  </div>
+                </div>
+                {(form.image || (answer && answer.imageUrl)) && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-20">
+                      <img
+                        src={form.image ? URL.createObjectURL(form.image) : answer?.imageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-contain rounded-md border"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setForm({ ...form, image: null })}
+                      className="text-red-500 hover:text-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -213,51 +241,69 @@ export function AnswerManagement({ questionId, answers: initialAnswers, onAnswer
     )
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        {localAnswers.filter(a => !a.isDeleted).map(answer => (
-          <div key={answer.id} className="flex items-center justify-between p-2 border rounded">
+  const renderAnswerList = () => {
+    return localAnswers
+      .filter(a => !a.isDeleted)
+      .map(answer => (
+        <Card key={answer.id} className="mb-4">
+          <CardContent className="pt-4">
             {editingId === answer.id ? (
               renderAnswerForm('edit', answer)
             ) : (
-              <>
-                <div className="flex items-center gap-2">
-                  {answer.imageUrl && (
-                    <img src={answer.imageUrl} alt="answer" className="h-6 w-6 object-cover rounded" />
-                  )}
-                  <span className={answer.isCorrect ? 'font-semibold text-green-600' : ''}>
-                    {answer.answerName}
-                  </span>
-                  {answer.isCorrect && <span className="text-xs text-green-600">(Đúng)</span>}
+              <div className="flex items-start gap-4">
+                {answer.imageUrl && (
+                  <div className="w-20 h-20 flex-shrink-0">
+                    <img
+                      src={answer.imageUrl}
+                      alt="Answer"
+                      className="w-full h-full object-contain rounded border"
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{answer.answerName}</span>
+                      {answer.isCorrect && (
+                        <Check className="h-4 w-4 text-green-500" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingId(answer.id)
+                          setEditForm({
+                            answerName: answer.answerName,
+                            isCorrect: answer.isCorrect,
+                            image: null
+                          })
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteAnswer(answer.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setEditingId(answer.id)
-                      setEditForm({
-                        answerName: answer.answerName,
-                        isCorrect: answer.isCorrect,
-                        image: null
-                      })
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteAnswer(answer.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </>
+              </div>
             )}
-          </div>
-        ))}
+          </CardContent>
+        </Card>
+      ))
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        {renderAnswerList()}
       </div>
 
       {!isCreating ? (

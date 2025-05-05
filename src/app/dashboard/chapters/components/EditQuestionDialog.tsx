@@ -78,7 +78,7 @@ export function EditQuestionDialog({
     const file = e.target.files?.[0] || null
     setQuestionImage(file)
     setForm(prev => ({ ...prev, image: file }))
-    setQuestionImagePreview(file ? URL.createObjectURL(file) : null)
+    setQuestionImagePreview(file ? URL.createObjectURL(file) : (question.imageUrl || null))
   }
 
   // Validate
@@ -204,56 +204,20 @@ export function EditQuestionDialog({
           {question ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col gap-2">
-                <Label>Nội dung câu hỏi</Label>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Nhập nội dung câu hỏi"
-                    className="flex-1"
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleQuestionImageChange}
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Thêm ảnh cho câu hỏi"
-                  >
-                    <ImageIcon className="h-5 w-5" />
-                  </Button>
-                </div>
-                {questionImagePreview && (
-                  <div className="relative">
-                    <img src={questionImagePreview} alt="Preview" className="max-h-32 rounded border object-contain mt-2" />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-1 right-1"
-                      onClick={() => {
-                        setQuestionImage(null)
-                        setQuestionImagePreview(null)
-                        setForm(prev => ({ ...prev, image: null }))
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
+                <Label htmlFor="question-content">Nội dung câu hỏi</Label>
+                <Input
+                  id="question-content"
+                  value={form.name}
+                  onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Nhập nội dung câu hỏi"
+                  className="flex-1"
+                />
               </div>
-
               <div>
                 <Label>Độ khó</Label>
                 <Select
                   value={form.difficulty.toString()}
-                  onValueChange={(value) => setForm(prev => ({ ...prev, difficulty: parseInt(value) }))}
+                  onValueChange={v => setForm(prev => ({ ...prev, difficulty: parseInt(v) }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Chọn độ khó" />
@@ -264,6 +228,24 @@ export function EditQuestionDialog({
                     <SelectItem value="3">Khó</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Ảnh minh họa câu hỏi (nếu có)</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleQuestionImageChange}
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} title="Thêm ảnh cho câu hỏi">
+                    <ImageIcon className="h-5 w-5" />
+                  </Button>
+                  {questionImagePreview && (
+                    <img src={questionImagePreview} alt="Preview" className="max-h-32 rounded border object-contain ml-2" />
+                  )}
+                </div>
               </div>
 
               <div className="space-y-4">

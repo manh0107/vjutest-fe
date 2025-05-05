@@ -33,7 +33,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { useRouter } from 'next/navigation'
-import { axiosInstance } from '@/services/axiosInstance'
 
 interface Role {
   name: string;

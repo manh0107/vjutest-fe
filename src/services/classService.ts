@@ -56,7 +56,12 @@ export interface Class {
   }[]
   classSubjects: {
     id: number
-    subjectName: string
+    subject: {
+      id: number
+      name: string
+      description: string
+    }
+    documentUrl?: string
   }[]
   exams: {
     id: number
@@ -167,16 +172,6 @@ export const classService = {
     }
   },
 
-  async addSubjects(classId: number, subjectIds: number[]) {
-    try {
-      const response = await api.post(`/classes/${classId}/add-subjects`, { subjectIds });
-      return response.data;
-    } catch (error) {
-      console.error('Error adding subjects:', error);
-      throw error;
-    }
-  },
-
   async removeSubjects(classId: number, subjectIds: number[]) {
     try {
       const response = await api.post(`/classes/${classId}/remove-subjects`, { subjectIds });
@@ -267,5 +262,39 @@ export const classService = {
       console.error('Lỗi khi từ chối yêu cầu:', error.response || error);
       throw new Error(error.response?.data || 'Không thể từ chối yêu cầu');
     }
-  }
+  },
+
+  async removeTeachers(classId: number, teacherIds: number[]) {
+    try {
+      const response = await api.post(`/classes/${classId}/remove-teachers`, { teacherIds });
+      return response.data;
+    } catch (error) {
+      console.error('Error removing teachers:', error);
+      throw error;
+    }
+  },
+
+  async deleteDocumentFromClass(classId: number, classSubjectId: number) {
+    try {
+      const response = await api.delete(`/classes/${classId}/documents/${classSubjectId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      throw error;
+    }
+  },
+
+  addSubjectToClass: async (classId: number, subjectId: number) => {
+    try {
+      const token = await authService.getValidToken()
+      const userResponse = await api.get('/auth/me')
+      const userId = userResponse.data.id
+
+      const response = await api.post(`/classes/add/${classId}/subjects/${subjectId}?userId=${userId}`)
+      return response.data
+    } catch (error) {
+      console.error('Error adding subject to class:', error)
+      throw error
+    }
+  },
 };
