@@ -132,92 +132,84 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg space-y-5" onSubmit={handleSubmit}>
-        <h2 className="text-2xl font-bold text-center text-[#b8021e] mb-2">Đăng ký tài khoản</h2>
-        {error && <div className="text-red-600 text-center font-semibold">{error}</div>}
-        {success && <div className="text-green-600 text-center font-semibold">{success}</div>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block font-medium mb-1">Họ tên</label>
-            <input name="name" value={form.name} onChange={handleChange} className="input" required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Mã số SV/GV</label>
-            <input name="code" value={form.code} onChange={handleChange} className="input" required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Số điện thoại</label>
-            <input name="phoneNumber" value={form.phoneNumber} onChange={handleChange} className="input" required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Email</label>
-            <input name="email" value={form.email} onChange={handleChange} className="input" required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Mật khẩu</label>
-            <input name="password" type="password" value={form.password} onChange={handleChange} className="input" required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Xác nhận mật khẩu</label>
-            <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleChange} className="input" required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Giới tính</label>
-            <select name="gender" value={form.gender} onChange={handleChange} className="input" required>
-              <option value="">Chọn</option>
-              <option value="Nam">Nam</option>
-              <option value="Nữ">Nữ</option>
-              <option value="Khác">Khác</option>
-            </select>
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Khoa</label>
-            <select name="departmentId" value={form.departmentId} onChange={handleChange} className="input" required>
-              <option value="">Chọn khoa</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Ngành</label>
-            <select name="majorId" value={form.majorId} onChange={handleChange} className="input" required disabled={!form.departmentId}>
-              <option value="">Chọn ngành</option>
-              {filteredMajors.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Vai trò</label>
-            <select name="roleName" value={form.roleName} onChange={handleChange} className="input" required>
-              <option value="student">Sinh viên</option>
-              <option value="teacher">Giáo viên</option>
-            </select>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f7f8fa] to-[#e6eaf3] py-8 px-4">
+      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden">
+        {/* Ảnh minh họa full bên trái, luôn hiển thị toàn bộ ảnh */}
+        <div className="md:w-1/2 h-64 md:h-auto flex-shrink-0 flex items-center justify-center bg-white relative">
+          <img src="/register.png" alt="Register Illustration" className="max-h-full max-w-full object-contain" style={{ width: '100%', height: '100%' }} />
         </div>
-        <button type="submit" className="w-full py-2 rounded-full bg-[#b8021e] text-white font-semibold text-lg shadow hover:bg-[#a00018] transition flex items-center justify-center disabled:opacity-60" disabled={loading}>
-          {loading ? <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></span> : null}
-          Đăng ký
-        </button>
-        <div className="text-center text-sm mt-2">
-          Đã có tài khoản? <a href="/login" className="text-[#b8021e] hover:underline">Đăng nhập</a>
+        {/* Form đăng ký */}
+        <div className="md:w-1/2 flex flex-col justify-center p-8">
+          <form className="w-full max-w-lg mx-auto space-y-5" onSubmit={handleSubmit}>
+            <h2 className="text-3xl font-extrabold text-[#b8021e] text-center mb-4">Đăng ký tài khoản</h2>
+            {error && <div className="text-red-600 text-center font-semibold">{error}</div>}
+            {success && <div className="text-green-600 text-center font-semibold">{success}</div>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Họ tên</label>
+                <input name="name" value={form.name} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required />
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Mã số SV/GV</label>
+                <input name="code" value={form.code} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required />
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Số điện thoại</label>
+                <input name="phoneNumber" value={form.phoneNumber} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required />
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Email</label>
+                <input name="email" value={form.email} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required />
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Mật khẩu</label>
+                <input name="password" type="password" value={form.password} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required />
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Xác nhận mật khẩu</label>
+                <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required />
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Giới tính</label>
+                <select name="gender" value={form.gender} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required>
+                  <option value="">Chọn</option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Khoa</label>
+                <select name="departmentId" value={form.departmentId} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required>
+                  <option value="">Chọn khoa</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Ngành</label>
+                <select name="majorId" value={form.majorId} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required disabled={!form.departmentId}>
+                  <option value="">Chọn ngành</option>
+                  {filteredMajors.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block font-medium mb-1 text-[#b8021e]">Vai trò</label>
+                <select name="roleName" value={form.roleName} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50" required>
+                  <option value="student">Sinh viên</option>
+                  <option value="teacher">Giáo viên</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" className="w-full py-2 rounded-full bg-[#b8021e] text-white font-semibold text-lg shadow hover:bg-[#a00018] transition flex items-center justify-center disabled:opacity-60" disabled={loading}>
+              {loading ? <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></span> : null}
+              Đăng ký
+            </button>
+            <div className="text-center text-sm mt-2">
+              <a href="/login" className="font-medium text-[#b8021e] hover:underline">Bạn đã có tài khoản? Đăng nhập</a>
+            </div>
+          </form>
         </div>
-      </form>
-      <style jsx>{`
-        .input {
-          width: 100%;
-          padding: 0.5rem 0.75rem;
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-          background: #f9f9f9;
-          font-size: 1rem;
-          margin-bottom: 0.25rem;
-          transition: border 0.2s;
-        }
-        .input:focus {
-          border: 1.5px solid #b8021e;
-          outline: none;
-          background: #fff;
-        }
-      `}</style>
+      </div>
     </div>
   );
 } 

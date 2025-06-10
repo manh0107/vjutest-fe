@@ -1,4 +1,4 @@
-export type Role = 'ROLE_ADMIN' | 'ROLE_USER' | 'ROLE_TEACHER' | 'admin' | 'teacher' | 'student' | { name: string }
+export type Role = 'ROLE_ADMIN' | 'ROLE_USER' | 'ROLE_TEACHER' | 'admin' | 'teacher' | 'student' | { id: number; name?: string }
 
 export interface User {
   id: number

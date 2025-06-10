@@ -1,7 +1,6 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 
 export function Header() {
@@ -13,9 +12,6 @@ export function Header() {
         <h1 className="text-xl font-semibold text-white">Chào mừng, {user?.name}!</h1>
       </div>
       <div className="flex items-center gap-4">
-        <div className="border-white text-white hover:bg-white hover:text-[#b71c1c] rounded transition">
-          <ThemeToggle />
-        </div>
         <Button className="bg-white text-[#b71c1c] font-bold border-none hover:bg-gray-100" onClick={logout}>
           Đăng xuất
         </Button>

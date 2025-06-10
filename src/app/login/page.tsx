@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import axios from 'axios'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const { user, login } = useAuth()
   const router = useRouter()
+  const [showPassword, setShowPassword] = useState(false)
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {}
@@ -50,28 +52,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Đăng nhập vào tài khoản
-          </h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f7f8fa] to-[#e6eaf3] py-8 px-4">
+      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden">
+        {/* Ảnh minh họa full bên trái, luôn hiển thị toàn bộ ảnh */}
+        <div className="md:w-1/2 h-64 md:h-auto flex-shrink-0 flex items-center justify-center bg-white relative">
+          <img src="/login.png" alt="Login Illustration" className="max-h-full max-w-full object-contain" style={{ width: '100%', height: '100%' }} />
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
+        {/* Form đăng nhập */}
+        <div className="md:w-1/2 flex flex-col justify-center p-8">
+          <h2 className="text-3xl font-extrabold text-[#b8021e] text-center mb-6">Đăng nhập vào hệ thống</h2>
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="sr-only">
-                Email
-              </label>
+              <label htmlFor="email" className="block font-medium mb-1 text-[#b8021e]">Email</label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
-                } placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm dark:bg-gray-800`}
-                placeholder="Email"
+                className={`w-full px-4 py-2 rounded-lg border ${errors.email ? 'border-red-500' : 'border-gray-300'} focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50`}
+                placeholder="Nhập email"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
@@ -83,51 +82,58 @@ export default function LoginPage() {
                 <p className="mt-1 text-sm text-red-500">{errors.email}</p>
               )}
             </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Mật khẩu
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
-                } placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm dark:bg-gray-800`}
-                placeholder="Mật khẩu"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setErrors({ ...errors, password: undefined })
-                }}
-                disabled={isLoading}
-              />
+            <div className="space-y-2">
+              <label htmlFor="password" className="block font-medium mb-1 text-[#b8021e]">Mật khẩu</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  className={`w-full px-4 py-2 rounded-lg border ${errors.password ? 'border-red-500' : 'border-gray-300'} focus:border-[#b8021e] focus:ring-2 focus:ring-[#b8021e]/20 outline-none text-gray-900 bg-gray-50`}
+                  placeholder="Nhập mật khẩu"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setErrors({ ...errors, password: undefined })
+                  }}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {errors.password && (
                 <p className="mt-1 text-sm text-red-500">{errors.password}</p>
               )}
             </div>
-          </div>
-
-          <div>
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded-full bg-[#b8021e] text-white font-semibold text-lg shadow hover:bg-[#a00018] transition disabled:opacity-60 flex items-center justify-center"
             >
+              {isLoading ? <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></span> : null}
               {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
-          </div>
-
-          <div className="text-sm text-center">
-            <Link 
-              href="/register" 
-              className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
-            >
-              Chưa có tài khoản? Đăng ký ngay
-            </Link>
-          </div>
-        </form>
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <a href="/forgot-password" className="text-sm text-[#b8021e] hover:underline font-medium">Quên mật khẩu?</a>
+              <Link
+                href="/register"
+                className="font-medium text-[#b8021e] hover:underline text-sm"
+              >
+                Chưa có tài khoản? Đăng ký ngay
+              </Link>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   )

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { classService, Class, UpdateClassData } from '@/services/classService'
+import api from '@/services/axios'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Pencil, Trash2, Search, Plus, Check, Square, X } from 'lucide-react'
+import { Pencil, Trash2, Search, Plus, Check, Square, X, UploadCloud, FileText, File, FileImage, Info } from 'lucide-react'
 import Link from 'next/link'
 import {
   AlertDialog,
@@ -42,6 +43,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { userService } from '@/services/userService'
+import { User } from '@/services/types'
+import { authService } from '@/services/authService'
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([])
@@ -65,6 +69,20 @@ export default function ClassesPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([])
   const [subjectsInClassMap, setSubjectsInClassMap] = useState<{ [classId: number]: Subject[] }>({})
   const [subjectsLoadingMap, setSubjectsLoadingMap] = useState<{ [classId: number]: boolean }>({})
+  const [documents, setDocuments] = useState<any[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadSubjects, setUploadSubjects] = useState<any[]>([])
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false)
+  const [allStudents, setAllStudents] = useState<User[]>([])
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([])
+  const [studentsLoading, setStudentsLoading] = useState(false)
+  const [addStudentsLoading, setAddStudentsLoading] = useState(false)
+  const [studentsInClassMap, setStudentsInClassMap] = useState<{ [classId: number]: User[] }>({})
+  const [studentsTabLoadingMap, setStudentsTabLoadingMap] = useState<{ [classId: number]: boolean }>({})
 
   useEffect(() => {
     fetchClasses()
@@ -245,6 +263,25 @@ export default function ClassesPage() {
     // eslint-disable-next-line
   }, [expandedClassId, activeTab])
 
+  const fetchDocuments = async (classId: number) => {
+    setDocumentsLoading(true);
+    try {
+      const docs = await classService.getDocumentsInClass(classId);
+      setDocuments(docs);
+    } catch (error) {
+      toast.error('Không thể tải danh sách tài liệu');
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (expandedClassId && activeTab === 'documents') {
+      fetchDocuments(expandedClassId);
+    }
+    // eslint-disable-next-line
+  }, [expandedClassId, activeTab]);
+
   const filteredClasses = classes.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.classCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -254,6 +291,118 @@ export default function ClassesPage() {
     subject.name.toLowerCase().includes(subjectSearchTerm.toLowerCase()) ||
     subject.description.toLowerCase().includes(subjectSearchTerm.toLowerCase())
   )
+
+  const handleUploadDocument = async () => {
+    if (!expandedClassId || !selectedSubjectId || !selectedFile) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      // Giả sử folderId là rỗng hoặc lấy từ BE nếu cần
+      formData.append('folderId', '')
+      await api.post(`/class-subjects/${expandedClassId}/${selectedSubjectId}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      toast.success('Tải tài liệu lên thành công')
+      setIsUploadDialogOpen(false)
+      setSelectedFile(null)
+      fetchDocuments(expandedClassId)
+    } catch (error) {
+      toast.error('Không thể tải tài liệu lên')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isUploadDialogOpen && expandedClassId) {
+      classService.getSubjectsInClass(expandedClassId)
+        .then(setUploadSubjects)
+        .catch(() => setUploadSubjects([]))
+    }
+  }, [isUploadDialogOpen, expandedClassId])
+
+  // Helper: icon theo loại file
+  const getFileIcon = (fileName: string) => {
+    if (!fileName) return <File className="h-5 w-5 text-gray-400" />
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    if (['pdf'].includes(ext!)) return <FileText className="h-5 w-5 text-red-500" />
+    if (['doc', 'docx'].includes(ext!)) return <FileText className="h-5 w-5 text-blue-500" />
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'].includes(ext!)) return <FileImage className="h-5 w-5 text-green-500" />
+    return <FileText className="h-5 w-5 text-gray-500" />
+  }
+
+  const fetchStudentsInClass = async (classId: number) => {
+    setStudentsTabLoadingMap(prev => ({ ...prev, [classId]: true }))
+    try {
+      const students = await classService.getStudentsInClass(classId)
+      setStudentsInClassMap(prev => ({ ...prev, [classId]: students }))
+    } catch (error) {
+      toast.error('Không thể tải danh sách sinh viên trong lớp')
+    } finally {
+      setStudentsTabLoadingMap(prev => ({ ...prev, [classId]: false }))
+    }
+  }
+
+  useEffect(() => {
+    if (expandedClassId && activeTab === 'students') {
+      fetchStudentsInClass(expandedClassId)
+    }
+    // eslint-disable-next-line
+  }, [expandedClassId, activeTab])
+
+  const openAddStudentModal = async () => {
+    setIsAddStudentModalOpen(true)
+    setStudentsLoading(true)
+    try {
+      const users = await userService.getUsers()
+      setAllStudents(users.filter((u: User) => (typeof u.role === 'string' ? u.role.includes('student') : u.role?.name?.includes('student'))))
+    } catch (error) {
+      toast.error('Không thể tải danh sách sinh viên')
+    } finally {
+      setStudentsLoading(false)
+    }
+  }
+
+  const handleStudentSelect = (id: number) => {
+    setSelectedStudentIds(prev => prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id])
+  }
+
+  const handleAddStudents = async () => {
+    if (!expandedClassId || selectedStudentIds.length === 0) return
+    setAddStudentsLoading(true)
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        toast.error('Không tìm thấy thông tin người dùng');
+        return;
+      }
+
+      const classItem = classes.find(c => c.id === expandedClassId);
+      if (!classItem) {
+        toast.error('Không tìm thấy thông tin lớp học');
+        return;
+      }
+
+      // Check if user is a teacher of the class
+      const isTeacher = classItem.teachers.some(t => t.id === user.id) || classItem.createdById === user.id;
+      if (!isTeacher) {
+        toast.error('Bạn không có quyền thêm sinh viên vào lớp này');
+        return;
+      }
+
+      await classService.addStudents(expandedClassId, selectedStudentIds)
+      toast.success('Đã thêm sinh viên vào lớp thành công')
+      setIsAddStudentModalOpen(false)
+      setSelectedStudentIds([])
+      fetchStudentsInClass(expandedClassId)
+      fetchClasses()
+    } catch (error) {
+      toast.error('Không thể thêm sinh viên vào lớp')
+    } finally {
+      setAddStudentsLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -369,8 +518,50 @@ export default function ClassesPage() {
                             )}
                             {activeTab === 'students' && (
                               <div className="p-4">
-                                <h3 className="text-lg font-semibold mb-4">Quản lý sinh viên trong lớp</h3>
-                                {/* Add student management UI here */}
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className="text-lg font-semibold">Quản lý sinh viên trong lớp</h3>
+                                  <Button variant="outline" size="sm" onClick={openAddStudentModal}>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Thêm sinh viên
+                                  </Button>
+                                </div>
+                                {studentsTabLoadingMap[classItem.id] ? (
+                                  <div>Đang tải danh sách sinh viên...</div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {(studentsInClassMap[classItem.id] || []).length === 0 ? (
+                                      <div className="text-muted-foreground">Chưa có sinh viên nào trong lớp này.</div>
+                                    ) : (
+                                      (studentsInClassMap[classItem.id] || []).map(student => (
+                                        <div key={student.id} className="flex items-center justify-between p-2 border rounded-lg">
+                                          <div>
+                                            <p className="font-medium">{student.name}</p>
+                                            <p className="text-sm text-muted-foreground">{student.email}</p>
+                                          </div>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="text-red-600 hover:text-red-700"
+                                            onClick={async () => {
+                                              if (window.confirm('Bạn có chắc chắn muốn xóa sinh viên này khỏi lớp?')) {
+                                                try {
+                                                  await classService.removeStudent(classItem.id, student.id);
+                                                  toast.success('Đã xóa sinh viên khỏi lớp thành công');
+                                                  fetchStudentsInClass(classItem.id);
+                                                  fetchClasses();
+                                                } catch (error) {
+                                                  toast.error('Không thể xóa sinh viên khỏi lớp');
+                                                }
+                                              }
+                                            }}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                             {activeTab === 'teachers' && (
@@ -381,8 +572,89 @@ export default function ClassesPage() {
                             )}
                             {activeTab === 'documents' && (
                               <div className="p-4">
-                                <h3 className="text-lg font-semibold mb-4">Quản lý tài liệu trong lớp</h3>
-                                {/* Add document management UI here */}
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className="text-lg font-semibold">Quản lý tài liệu trong lớp</h3>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => setIsUploadDialogOpen(true)}
+                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                                  >
+                                    <UploadCloud className="h-4 w-4" />
+                                    Thêm tài liệu
+                                  </Button>
+                                </div>
+                                {documentsLoading ? (
+                                  <div>Đang tải tài liệu...</div>
+                                ) : (
+                                  <>
+                                    {documents.length === 0 ? (
+                                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                                        <Info className="h-12 w-12 mb-2" />
+                                        <div className="font-medium mb-1">Chưa có tài liệu nào cho lớp học này.</div>
+                                        <div className="text-sm">Hãy nhấn <b>Thêm tài liệu</b> để upload file cho lớp học.</div>
+                                      </div>
+                                    ) : (
+                                      <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                          <thead className="bg-gray-50">
+                                            <tr>
+                                              <th className="px-4 py-2 text-left font-semibold">Loại</th>
+                                              <th className="px-4 py-2 text-left font-semibold">Tên tài liệu</th>
+                                              <th className="px-4 py-2 text-left font-semibold">Môn học</th>
+                                              <th className="px-4 py-2 text-left font-semibold">Hành động</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {documents.map((doc) => (
+                                              <tr key={doc.id} className="hover:bg-blue-50 transition">
+                                                <td className="px-4 py-2 align-middle">{getFileIcon(doc.fileName)}</td>
+                                                <td className="px-4 py-2 align-middle max-w-xs truncate" title={doc.fileName}>
+                                                  {doc.documentUrl ? (
+                                                    <a
+                                                      href={doc.documentUrl}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="text-[#2563eb] font-medium hover:text-[#1d4ed8] focus:outline-none"
+                                                      style={{ textDecoration: 'none' }}
+                                                    >
+                                                      {doc.fileName || 'Xem tài liệu'}
+                                                    </a>
+                                                  ) : (
+                                                    <span className="text-gray-400">Chưa có</span>
+                                                  )}
+                                                </td>
+                                                <td className="px-4 py-2 align-middle">{doc.subject?.name}</td>
+                                                <td className="px-4 py-2 align-middle">
+                                                  {doc.documentUrl && (
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="icon"
+                                                      className="hover:bg-red-50"
+                                                      onClick={async () => {
+                                                        if (window.confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) {
+                                                          try {
+                                                            await classService.deleteDocumentFromClass(expandedClassId, doc.id);
+                                                            fetchDocuments(expandedClassId);
+                                                            toast.success('Đã xóa tài liệu thành công');
+                                                          } catch (error) {
+                                                            toast.error('Không thể xóa tài liệu');
+                                                          }
+                                                        }
+                                                      }}
+                                                    >
+                                                      <Trash2 className="h-5 w-5 text-red-600" />
+                                                    </Button>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>
@@ -523,6 +795,73 @@ export default function ClassesPage() {
               disabled={selectedSubjects.length === 0}
             >
               Thêm {selectedSubjects.length > 0 ? `(${selectedSubjects.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Thêm tài liệu vào lớp</DialogTitle>
+            <DialogDescription>Chọn môn học và file tài liệu để upload lên Google Drive</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <select
+              className="w-full border rounded p-2"
+              value={selectedSubjectId ?? ''}
+              onChange={e => setSelectedSubjectId(Number(e.target.value))}
+            >
+              <option value="">Chọn môn học</option>
+              {uploadSubjects.map(subject => (
+                <option key={subject.id} value={subject.id}>{subject.name}</option>
+              ))}
+            </select>
+            <input
+              type="file"
+              className="w-full"
+              onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+              accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)} disabled={uploading}>Hủy</Button>
+            <Button onClick={handleUploadDocument} disabled={!selectedSubjectId || !selectedFile || uploading}>
+              {uploading ? 'Đang tải lên...' : 'Tải lên'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddStudentModalOpen} onOpenChange={setIsAddStudentModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Thêm sinh viên vào lớp</DialogTitle>
+            <DialogDescription>Chọn một hoặc nhiều sinh viên để thêm vào lớp</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[300px] overflow-y-auto space-y-2">
+            {studentsLoading ? (
+              <div>Đang tải danh sách sinh viên...</div>
+            ) : (
+              allStudents.map(student => (
+                <div
+                  key={student.id}
+                  className={`flex items-center justify-between p-2 border rounded-lg cursor-pointer ${selectedStudentIds.includes(student.id) ? 'bg-accent' : ''}`}
+                  onClick={() => handleStudentSelect(student.id)}
+                >
+                  <div>
+                    <p className="font-medium">{student.name}</p>
+                    <p className="text-sm text-muted-foreground">{student.email}</p>
+                  </div>
+                  {selectedStudentIds.includes(student.id) ? <Check className="h-4 w-4 text-green-600" /> : <Square className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddStudentModalOpen(false)} disabled={addStudentsLoading}>Hủy</Button>
+            <Button onClick={handleAddStudents} disabled={selectedStudentIds.length === 0 || addStudentsLoading}>
+              {addStudentsLoading ? 'Đang thêm...' : `Thêm${selectedStudentIds.length > 0 ? ` (${selectedStudentIds.length})` : ''}`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -25,11 +25,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof role === 'string') {
       return role
     }
-    return role.name
+    if (typeof role === 'object' && role !== null && 'name' in role) {
+      return role.name || ''
+    }
+    return ''
   }
 
   useEffect(() => {
     const initializeAuth = async () => {
+      const publicPaths = ['/login', '/register', '/forgot-password', '/verify', '/reset-password'];
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
       try {
         // Kiểm tra token trong localStorage
         const token = authService.getToken()
@@ -50,18 +55,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } catch (error) {
               console.error('Token refresh failed:', error)
               authService.logout()
-              router.push('/login')
+              if (!publicPaths.some((p) => pathname.startsWith(p))) {
+                router.push('/login')
+              }
             }
           }
         } else {
-          // Không có token, chuyển về trang login
-          router.push('/login')
+          // Không có token, chuyển về trang login nếu không phải trang public
+          if (!publicPaths.some((p) => pathname.startsWith(p))) {
+            router.push('/login')
+          }
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
-        // Nếu có lỗi khởi tạo, logout và chuyển về trang login
+        // Nếu có lỗi khởi tạo, logout và chuyển về trang login nếu không phải trang public
         authService.logout()
-        router.push('/login')
+        if (!publicPaths.some((p) => pathname.startsWith(p))) {
+          router.push('/login')
+        }
       } finally {
         setLoading(false)
       }
@@ -91,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push('/dashboard')
           } else if (roleName === 'ROLE_TEACHER' || roleName === 'teacher') {
             router.push('/teacher')
-          } else if (roleName === 'ROLE_USER' || roleName === 'student') {
+          } else if (roleName === 'ROLE_USER' || roleName === 'student' || roleName === 'ROLE_STUDENT') {
             router.push('/student')
           } else {
             console.error('Unknown role:', roleName)

@@ -122,15 +122,14 @@ export const subjectService = {
 
   async getTeacherSubjects(): Promise<Subject[]> {
     try {
-      const user = await authService.getCurrentUser();
-      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
-      const response = await axios.get(`/subjects/teacher/${user.id}`, {
-        headers: { Authorization: `Bearer ${await authService.getValidToken()}` }
-      });
-      return response.data;
+      const token = await authService.getValidToken()
+      const response = await axios.get('/subjects/all', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      return response.data
     } catch (error: any) {
-      console.error('Lỗi khi lấy danh sách môn học của giảng viên:', error);
-      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách môn học của giảng viên');
+      console.error('Lỗi khi lấy danh sách môn học của giảng viên:', error)
+      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách môn học của giảng viên')
     }
   }
 } 

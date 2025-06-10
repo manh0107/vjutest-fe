@@ -86,15 +86,6 @@ export default function UserManagement() {
     try {
       const { department, major, ...rest } = userData;
       
-      const getRoleId = (role: string | undefined) => {
-        switch(role) {
-          case 'ROLE_ADMIN': return 1;
-          case 'ROLE_TEACHER': return 2;
-          case 'ROLE_USER': return 3;
-          default: return 3;
-        }
-      };
-
       const dataToSend = {
         name: rest.name,
         email: rest.email,
@@ -104,9 +95,9 @@ export default function UserManagement() {
         gender: rest.gender,
         imageUrl: rest.imageUrl || undefined,
         isEnabled: rest.isEnabled === undefined ? true : rest.isEnabled,
-        department: department?.id ? { id: department.id, name: department.name } : undefined,
-        major: major?.id ? { id: major.id, name: major.name } : undefined,
-        role: { id: getRoleId(typeof rest.role === 'string' ? rest.role : '') }
+        department: department?.id ? { id: department.id } : undefined,
+        major: major?.id ? { id: major.id } : undefined,
+        role: rest.role
       }
       
       const newUser = await userService.createUser(dataToSend, currentUser.id)
@@ -173,31 +164,23 @@ export default function UserManagement() {
         phoneNumber: rest.phoneNumber ? Number(rest.phoneNumber) : undefined,
         gender: rest.gender,
         isEnabled: rest.isEnabled === undefined ? true : rest.isEnabled,
-        department: department?.id ? { id: department.id, name: department.name } : undefined,
-        major: major?.id ? { id: major.id, name: major.name } : undefined,
+        department: department?.id ? { id: department.id } : undefined,
+        major: major?.id ? { id: major.id } : undefined,
         role: { id: getRoleId(typeof rest.role === 'string' ? rest.role : '') },
-        imageUrl: rest.imageUrl // Thêm imageUrl vào dataToSend
+        imageUrl: rest.imageUrl
       };
-
-      // Log data before sending
-      console.log('Data to send:', JSON.stringify(dataToSend, null, 2));
 
       let updatedUser;
       if (file) {
         const formData = new FormData();
         formData.append('user', JSON.stringify(dataToSend));
         formData.append('file', file);
-        console.log('FormData content:', {
-          user: JSON.stringify(dataToSend),
-          hasFile: !!file
-        });
         updatedUser = await userService.updateUser(selectedUser.id, formData, currentUser.id, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
       } else {
-        // Khi không có file, gửi trực tiếp dataToSend
         updatedUser = await userService.updateUser(selectedUser.id, dataToSend, currentUser.id);
       }
 

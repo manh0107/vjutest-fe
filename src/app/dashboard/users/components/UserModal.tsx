@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { User } from '@/services/types'
-import { ImageIcon, Upload } from 'lucide-react'
+import { ImageIcon, Upload, Eye, EyeOff } from 'lucide-react'
 import React from 'react'
 import { useUserForm } from '@/hooks/useUserForm'
 import { departmentService } from '@/services/departmentService'
@@ -39,10 +39,16 @@ interface Major {
   departmentId: number;
 }
 
+interface Role {
+  id: number;
+  name?: string;
+}
+
 // Extended User type to include form fields
-interface UserFormData extends Partial<User> {
+interface UserFormData extends Omit<Partial<User>, 'role'> {
   password?: string;
   imageUrl?: string;
+  role?: string | Role;
 }
 
 interface UserModalProps {
@@ -89,6 +95,7 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
   const [departments, setDepartments] = useState<Department[]>([])
   const [majors, setMajors] = useState<Major[]>([])
   const [filteredMajors, setFilteredMajors] = useState<Major[]>([])
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -121,6 +128,7 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
       case 'ROLE_ADMIN': return 1;
       case 'ROLE_TEACHER': return 2;
       case 'ROLE_USER': return 3;
+      case 'student': return 3;
       default: return 3;
     }
   };
@@ -171,7 +179,9 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
         isEnabled: formData.isEnabled,
         department: formData.department?.id ? { id: formData.department.id, name: formData.department.name } : undefined,
         major: formData.major?.id ? { id: formData.major.id, name: formData.major.name } : undefined,
-        role: { id: getRoleId(typeof formData.role === 'string' ? formData.role : '') }
+        role: {
+          id: getRoleId(typeof formData.role === 'string' ? formData.role : '')
+        }
       };
 
       const formDataToSend = new FormData();
@@ -260,30 +270,39 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
 
               <div className="grid gap-2">
                 <Label htmlFor="password">Mật khẩu</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  required={!user}
-                  disabled={isSubmitting}
-                  placeholder={user ? "Để trống nếu không muốn thay đổi" : ""}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                    required={!user}
+                    disabled={isSubmitting}
+                    placeholder={user ? "Để trống nếu không muốn thay đổi" : ""}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {validationErrors.password && (
                   <p className="text-sm text-red-500">{validationErrors.password}</p>
                 )}
               </div>
 
               <div className="grid gap-2">
-                <Label>Vai trò</Label>
+                <Label htmlFor="role">Vai trò</Label>
                 <Select
                   value={(() => {
-                    // Ưu tiên lấy từ formData nếu đã chọn
                     if (typeof formData.role === 'string') {
-                      if (["ROLE_USER", "ROLE_TEACHER", "ROLE_ADMIN"].includes(formData.role)) return formData.role;
-                      if (formData.role === 'student') return 'ROLE_USER';
-                      if (formData.role === 'teacher') return 'ROLE_TEACHER';
-                      if (formData.role === 'admin') return 'ROLE_ADMIN';
+                      return formData.role;
                     }
                     if (typeof formData.role === 'object' && formData.role?.id) {
                       switch (formData.role.id) {
@@ -293,26 +312,15 @@ export function UserModal({ isOpen, onClose, onSubmit, user, title }: UserModalP
                         default: return '';
                       }
                     }
-                    // Nếu đang cập nhật user, lấy từ user.role
-                    if (user) {
-                      if (typeof user.role === 'string') {
-                        if (["ROLE_USER", "ROLE_TEACHER", "ROLE_ADMIN"].includes(user.role)) return user.role;
-                        if (user.role === 'student') return 'ROLE_USER';
-                        if (user.role === 'teacher') return 'ROLE_TEACHER';
-                        if (user.role === 'admin') return 'ROLE_ADMIN';
-                      }
-                      if (typeof user.role === 'object' && user.role?.id) {
-                        switch (user.role.id) {
-                          case 1: return 'ROLE_ADMIN';
-                          case 2: return 'ROLE_TEACHER';
-                          case 3: return 'ROLE_USER';
-                          default: return '';
-                        }
-                      }
-                    }
                     return '';
                   })()}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
+                  onValueChange={(value) => {
+                    const roleId = getRoleId(value);
+                    setFormData(prev => {
+                      const newData = { ...prev, role: { id: roleId } };
+                      return newData;
+                    });
+                  }}
                   disabled={isSubmitting}
                 >
                   <SelectTrigger>

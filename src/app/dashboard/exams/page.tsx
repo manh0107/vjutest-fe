@@ -14,9 +14,12 @@ import { Exam, Subject, ClassEntity } from '@/services/types'
 import { ExamCreateModal } from './components/ExamCreateModal'
 import { Button } from '@/components/ui/button'
 import { ClassExamCreateModal } from './components/ClassExamCreateModal'
+import { useRouter } from 'next/navigation'
+import { BarChart as ChartIcon } from 'lucide-react'
 
 export default function ExamsPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('public')
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null)
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null)
@@ -153,11 +156,20 @@ export default function ExamsPage() {
 
   return (
     <Card className="max-w-[1200px] mx-auto">
-      <CardHeader>
-        <CardTitle>Quản lý bài kiểm tra</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Xem và quản lý các bài kiểm tra công khai hoặc trong lớp học
-        </p>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Quản lý bài kiểm tra</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Xem và quản lý các bài kiểm tra công khai hoặc trong lớp học
+          </p>
+        </div>
+        <button
+          className="ml-4 p-2 rounded-full bg-[#f7f8fa] hover:bg-[#e6eaf3] border border-gray-200 shadow transition flex items-center"
+          title="Xem biểu đồ tổng quan điểm sinh viên"
+          onClick={() => router.push('/dashboard/exams/overview')}
+        >
+          <ChartIcon className="h-7 w-7 text-[#b8021e]" />
+        </button>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="public" className="space-y-4" onValueChange={setActiveTab}>

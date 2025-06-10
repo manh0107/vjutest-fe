@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { classService } from '@/services/classService';
 import { subjectService } from '@/services/subjectService';
 import { examService } from '@/services/examService';
+import { toast } from 'react-hot-toast';
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -63,6 +64,20 @@ export default function TeacherDashboard() {
       fetchExams();
     }
   }, [authLoading, loadingSubjects, user, subjects]);
+
+  const fetchData = async () => {
+    try {
+      const [classesData, subjectsData] = await Promise.all([
+        classService.getAllClasses(),
+        subjectService.getAllSubjects()
+      ]);
+      setClasses(classesData);
+      setSubjects(subjectsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Không thể tải dữ liệu');
+    }
+  };
 
   if (authLoading || !user || user.role !== 'teacher') {
     return (

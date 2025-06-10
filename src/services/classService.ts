@@ -154,8 +154,14 @@ export const classService = {
 
   async addStudents(classId: number, studentIds: number[]) {
     try {
-      const response = await api.post(`/classes/${classId}/add-students`, { studentIds });
-      return response.data;
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
+      
+      // Add students one by one
+      for (const studentId of studentIds) {
+        await api.post(`/classes/add-student/${classId}/students/${studentId}?userId=${user.id}`);
+      }
+      return true;
     } catch (error) {
       console.error('Error adding students:', error);
       throw error;
@@ -215,7 +221,9 @@ export const classService = {
 
   async removeStudent(classId: number, userId: number): Promise<void> {
     try {
-      await api.delete(`/classes/${classId}/remove-student?studentId=${userId}`);
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
+      await api.delete(`/classes/remove-student/${classId}/students/${userId}?userId=${user.id}`);
     } catch (error: any) {
       console.error('Lỗi khi xóa học sinh:', error.response || error);
       throw new Error(error.response?.data || 'Không thể xóa học sinh');
@@ -304,12 +312,44 @@ export const classService = {
 
   async getTeacherClasses(): Promise<Class[]> {
     try {
-      const user = await authService.getCurrentUser();
-      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
-      const response = await api.get(`/classes/teacher/${user.id}`);
+      const token = await authService.getValidToken();
+      const userResponse = await api.get('/auth/me');
+      const userId = userResponse.data.id;
+      
+      const response = await api.get(`/classes/all?userId=${userId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error getting teacher classes:', error);
+      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách lớp học');
+    }
+  },
+
+  async getDocumentsInClass(classId: number) {
+    try {
+      const response = await api.get(`/classes/${classId}/documents`);
       return response.data;
     } catch (error) {
-      console.error('Error getting teacher classes:', error);
+      console.error('Error fetching documents:', error);
+      throw error;
+    }
+  },
+
+  async getSubjectsInClass(classId: number) {
+    try {
+      const response = await api.get(`/classes/${classId}/subjects`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching subjects in class:', error);
+      throw error;
+    }
+  },
+
+  async getStudentsInClass(classId: number) {
+    try {
+      const response = await api.get(`/classes/${classId}/students`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching students in class:', error);
       throw error;
     }
   },

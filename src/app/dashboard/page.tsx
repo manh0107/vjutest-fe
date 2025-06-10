@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, BookOpen, FileText, GraduationCap, BarChart } from "lucide-react"
 import { useAuth } from '@/contexts/AuthContext'
+import { Badge } from "@/components/ui/badge"
+import { BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts'
+import api from '@/services/axios'
+import { PieChart, Pie, Cell as PieCell, Legend as PieLegend } from 'recharts'
 
 interface DashboardStats {
   totalUsers: number
@@ -12,10 +16,21 @@ interface DashboardStats {
   totalSubjects: number
   recentResults: {
     id: number
-    examTitle: string
-    username: string
+    exam: {
+      id: number
+      name: string
+    }
+    user: {
+      id: number
+      username: string
+    }
     score: number
-    submittedAt: string
+    isSubmitted: boolean
+    isPassed: boolean
+    startTime: string
+    endTime: string
+    submitTime: string
+    allowRetake: boolean
   }[]
 }
 
@@ -28,12 +43,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/api/dashboard/stats')
-        if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data')
-        }
-        const data = await response.json()
-        setStats(data)
+        const response = await api.get('/api/dashboard/stats')
+        setStats(response.data)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
@@ -63,73 +74,136 @@ export default function DashboardPage() {
     )
   }
 
+  // Chuẩn bị dữ liệu cho biểu đồ
+  const chartData = [
+    { name: 'Người dùng', value: stats?.totalUsers || 0, color: '#b8021e' },
+    { name: 'Lớp học', value: stats?.totalClasses || 0, color: '#1f701f' },
+    { name: 'Bài kiểm tra', value: stats?.totalExams || 0, color: '#1976d2' },
+    { name: 'Môn học', value: stats?.totalSubjects || 0, color: '#f9a825' },
+  ];
+
+  // Dữ liệu cho PieChart điểm bài kiểm tra gần nhất
+  const latestResult = stats?.recentResults && stats.recentResults.length > 0 ? stats.recentResults[0] : null;
+  const pieData = latestResult ? [
+    { name: 'Điểm đạt được', value: latestResult.score, color: '#b8021e' },
+    { name: 'Điểm còn lại', value: Math.max(0, 10 - latestResult.score), color: '#e0e0e0' }, // Giả sử tổng điểm là 10
+  ] : [];
+
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+    <div className="space-y-8 max-w-6xl mx-auto px-2 md:px-0 pb-10">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {chartData.map((item) => (
+          <Card key={item.name} className="rounded-2xl shadow-lg border-t-4" style={{ borderTopColor: item.color }}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold" style={{ color: item.color }}>{item.name}</CardTitle>
+              <div className="rounded-full p-2 bg-gray-100">
+                {item.name === 'Người dùng' && <Users className="h-6 w-6" style={{ color: item.color }} />}
+                {item.name === 'Lớp học' && <GraduationCap className="h-6 w-6" style={{ color: item.color }} />}
+                {item.name === 'Bài kiểm tra' && <FileText className="h-6 w-6" style={{ color: item.color }} />}
+                {item.name === 'Môn học' && <BookOpen className="h-6 w-6" style={{ color: item.color }} />}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-center" style={{ color: item.color }}>{item.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Biểu đồ tổng quan */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <Card className="rounded-2xl shadow-lg flex-1">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-[#b8021e]">Thống kê tổng quan</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ReBarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }} barCategoryGap={30} barSize={40}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontWeight: 600, fontSize: 15 }} />
+                  <YAxis allowDecimals={false} label={{ value: 'Số lượng', angle: -90, position: 'insideLeft', fontSize: 14, fontWeight: 600 }} />
+                  <Tooltip />
+                  <Legend formatter={() => 'Số lượng'} />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]} name="Số lượng">
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </ReBarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Classes</CardTitle>
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+        {/* Biểu đồ tròn PieChart */}
+        <Card className="rounded-2xl shadow-lg flex-1 flex flex-col items-center justify-center">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-[#b8021e]">Điểm bài kiểm tra gần nhất</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalClasses || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Exams</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalExams || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalSubjects || 0}</div>
+          <CardContent className="flex flex-col items-center justify-center">
+            {latestResult ? (
+              <>
+                <PieChart width={220} height={220}>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    label={({ name, value }) => `${name}: ${value}`}
+                  >
+                    {pieData.map((entry, idx) => (
+                      <PieCell key={`cell-${idx}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <PieLegend />
+                </PieChart>
+                <div className="mt-4 text-center">
+                  <div className="font-semibold text-base text-[#b8021e]">{latestResult.exam?.name}</div>
+                  <div className="text-gray-500 text-sm">Mã: <span className="font-bold">{latestResult.exam?.id}</span></div>
+                </div>
+              </>
+            ) : (
+              <div className="text-gray-400 text-center">Chưa có kết quả bài kiểm tra nào</div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      {/* Kết quả gần đây */}
+      <Card className="rounded-2xl shadow-lg">
         <CardHeader>
-          <CardTitle>Recent Exam Results</CardTitle>
+          <CardTitle className="text-lg font-bold text-[#b8021e]">Kết quả bài kiểm tra gần đây</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {stats?.recentResults.map((result) => (
+            {stats?.recentResults && stats.recentResults.length > 0 ? stats.recentResults.map((result) => (
               <div
                 key={result.id}
-                className="flex items-center justify-between rounded-lg border p-4"
+                className="flex flex-col md:flex-row md:items-center justify-between rounded-xl border p-4 bg-gradient-to-r from-[#f7f8fa] to-[#e6eaf3] shadow-sm hover:shadow-md transition"
               >
-                <div className="space-y-1">
-                  <p className="font-medium">{result.examTitle}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {result.username} - Score: {result.score}
-                  </p>
+                <div className="flex items-center gap-4 mb-2 md:mb-0">
+                  <div className="rounded-full bg-[#b8021e]/10 p-2">
+                    <FileText className="h-7 w-7 text-[#b8021e]" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-lg text-[#b8021e]">{result.exam?.name}</div>
+                    <div className="text-gray-500 text-sm">Điểm: <span className="font-bold text-[#1976d2]">{result.score}</span></div>
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {new Date(result.submittedAt).toLocaleString()}
+                <div className="flex items-center gap-3">
+                  <Badge variant={result.isPassed ? "default" : "destructive"} className="text-base px-4 py-1 rounded-full">
+                    {result.isPassed ? "Đạt" : "Không đạt"}
+                  </Badge>
+                  {result.submitTime && (
+                    <span className="text-gray-400 text-sm">{new Date(result.submitTime).toLocaleString('vi-VN')}</span>
+                  )}
                 </div>
               </div>
-            ))}
-            {(!stats?.recentResults || stats.recentResults.length === 0) && (
-              <p className="text-center text-muted-foreground">
-                No recent exam results
-              </p>
+            )) : (
+              <p className="text-center text-muted-foreground">Chưa có kết quả bài kiểm tra nào</p>
             )}
           </div>
         </CardContent>

@@ -17,12 +17,15 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const isExamPage = pathname.includes('/student/exams/');
 
   useEffect(() => {
+    const publicPaths = ['/login', '/register', '/forgot-password', '/verify'];
     if (!loading) {
       if (!user || user.role !== 'student') {
-        router.push('/login');
+        if (!publicPaths.some((p) => pathname.startsWith(p))) {
+          router.push('/login');
+        }
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
   if (loading) {
     return (
@@ -33,6 +36,9 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   }
 
   if (!user || user.role !== 'student') {
+    if (['/login', '/register', '/forgot-password', '/verify'].some((p) => pathname.startsWith(p))) {
+      return <>{children}</>;
+    }
     return null;
   }
 

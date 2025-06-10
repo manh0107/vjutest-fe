@@ -12,12 +12,21 @@ import { toast } from 'sonner'
 interface Result {
   id: number
   examId: number
-  examTitle: string
+  examName: string
   userId: number
-  username: string
+  userName: string
   score: number
-  totalQuestions: number
-  submittedAt: string
+  submitTime: string
+  startTime?: string
+  endTime?: string
+  isSubmitted?: boolean
+  isPassed?: boolean
+  studentName?: string
+  studentCode?: string
+  studentAvatar?: string
+  examCode?: string
+  subjectName?: string
+  chapterName?: string
 }
 
 export default function ResultView() {
@@ -46,8 +55,8 @@ export default function ResultView() {
   }, [])
 
   const filteredResults = results.filter(result =>
-    result.examTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    result.username.toLowerCase().includes(searchTerm.toLowerCase())
+    (result.examName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (result.userName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   )
 
   if (loading) {
@@ -57,10 +66,10 @@ export default function ResultView() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Exam Results</CardTitle>
+        <CardTitle>Kết quả bài kiểm tra</CardTitle>
         <div className="flex items-center space-x-2">
           <Input
-            placeholder="Search results..."
+            placeholder="Tìm kiếm theo tên bài kiểm tra hoặc tên sinh viên..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="max-w-sm"
@@ -72,28 +81,25 @@ export default function ResultView() {
           <TableHeader>
             <TableRow>
               <TableHead>ID</TableHead>
-              <TableHead>Exam</TableHead>
-              <TableHead>Student</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead>Total Questions</TableHead>
-              <TableHead>Submitted At</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Bài kiểm tra</TableHead>
+              <TableHead>Sinh viên</TableHead>
+              <TableHead>Điểm số</TableHead>
+              <TableHead>Thời gian nộp bài</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredResults.map((result) => (
               <TableRow key={result.id}>
                 <TableCell>{result.id}</TableCell>
-                <TableCell>{result.examTitle}</TableCell>
-                <TableCell>{result.username}</TableCell>
-                <TableCell>{result.score}</TableCell>
-                <TableCell>{result.totalQuestions}</TableCell>
+                <TableCell>{result.examName || '-'}</TableCell>
+                <TableCell>{result.userName || result.studentName || '-'}</TableCell>
+                <TableCell>{result.score ?? '-'}</TableCell>
                 <TableCell>
-                  {format(new Date(result.submittedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                  {result.submitTime ? format(new Date(result.submitTime), 'dd/MM/yyyy HH:mm', { locale: vi }) : '-'}
                 </TableCell>
                 <TableCell>
                   <Button variant="outline" size="sm">
-                    View Details
+                    Xem chi tiết
                   </Button>
                 </TableCell>
               </TableRow>

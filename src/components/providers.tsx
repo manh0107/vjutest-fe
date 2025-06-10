@@ -2,17 +2,10 @@
 
 import { AuthProvider } from '@/contexts/AuthContext'
 import { Toaster } from "sonner"
-import { ThemeProvider } from "@/components/theme-provider"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
         <main className="relative flex min-h-screen flex-col">
           {children}
         </main>
@@ -43,7 +36,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           invert={false}
           richColors={false}
         />
-      </ThemeProvider>
     </AuthProvider>
   )
 } 

@@ -13,6 +13,7 @@ import { subjectService } from '@/services/subjectService';
 import { examService } from '@/services/examService';
 import { BookOpen, GraduationCap, FileText, Clock, CheckCircle, Users, ListChecks } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import StudentBanner from './components/StudentBanner';
 
 interface Exam {
   id: number;
@@ -97,6 +98,7 @@ export default function StudentHomePage() {
 
   return (
     <div className="pb-16 max-w-6xl mx-auto px-2 md:px-0">
+      <StudentBanner />
       {/* Section lớp học */}
       <section className="mt-10 mb-16">
         <h2 className="text-3xl font-extrabold text-[#b8021e] mb-2 text-center tracking-tight">Lớp học của bạn</h2>
