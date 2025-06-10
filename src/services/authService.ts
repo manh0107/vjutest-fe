@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { User as UserType } from './types'
+import type { User as UserType, Role } from './types'
 import { jwtDecode } from 'jwt-decode'
 
 const API_URL = 'http://localhost:8080'
@@ -52,14 +52,20 @@ export interface User {
   id: number
   name: string
   email: string
-  role: string
-  image?: string
-  code?: string
+  role: Role
+  imageUrl?: string
+  code?: number
   phoneNumber?: number
   className?: string
   gender?: string
-  department?: string
-  major?: string
+  department?: {
+    id: number
+    name: string
+  }
+  major?: {
+    id: number
+    name: string
+  }
   isEnabled: boolean
   createdAt: string
 }

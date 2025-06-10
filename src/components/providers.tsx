@@ -3,7 +3,6 @@
 import { AuthProvider } from '@/contexts/AuthContext'
 import { Toaster } from "sonner"
 import { ThemeProvider } from "@/components/theme-provider"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -44,7 +43,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           invert={false}
           richColors={false}
         />
-        <ThemeToggle />
       </ThemeProvider>
     </AuthProvider>
   )

@@ -174,8 +174,12 @@ export const classService = {
 
   async removeSubjects(classId: number, subjectIds: number[]) {
     try {
-      const response = await api.post(`/classes/${classId}/remove-subjects`, { subjectIds });
-      return response.data;
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
+      for (const subjectId of subjectIds) {
+        await api.delete(`/classes/remove/${classId}/subjects/${subjectId}?userId=${user.id}`);
+      }
+      return true;
     } catch (error) {
       console.error('Error removing subjects:', error);
       throw error;
@@ -295,6 +299,18 @@ export const classService = {
     } catch (error) {
       console.error('Error adding subject to class:', error)
       throw error
+    }
+  },
+
+  async getTeacherClasses(): Promise<Class[]> {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
+      const response = await api.get(`/classes/teacher/${user.id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting teacher classes:', error);
+      throw error;
     }
   },
 };

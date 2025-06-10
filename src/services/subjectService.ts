@@ -105,5 +105,32 @@ export const subjectService = {
       console.error('Lỗi khi xóa môn học:', error)
       throw new Error(error.response?.data?.message || 'Không thể xóa môn học')
     }
+  },
+
+  async getSubjectsInClass(classId: number): Promise<Subject[]> {
+    try {
+      const token = await authService.getValidToken();
+      const response = await axios.get(`/classes/${classId}/subjects`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Lỗi khi lấy danh sách môn học trong lớp:', error);
+      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách môn học trong lớp');
+    }
+  },
+
+  async getTeacherSubjects(): Promise<Subject[]> {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
+      const response = await axios.get(`/subjects/teacher/${user.id}`, {
+        headers: { Authorization: `Bearer ${await authService.getValidToken()}` }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Lỗi khi lấy danh sách môn học của giảng viên:', error);
+      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách môn học của giảng viên');
+    }
   }
 } 

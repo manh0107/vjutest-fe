@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { Exam, Subject, ClassEntity } from '@/services/types'
 import { ExamCreateModal } from './components/ExamCreateModal'
 import { Button } from '@/components/ui/button'
+import { ClassExamCreateModal } from './components/ClassExamCreateModal'
 
 export default function ExamsPage() {
   const { user } = useAuth()
@@ -38,6 +39,24 @@ export default function ExamsPage() {
       fetchExams()
     }
   }, [activeTab, selectedSubjectId, selectedClassId, user])
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (selectedSubjectId && (activeTab === 'public' || (activeTab === 'class' && selectedClassId))) {
+      fetchExams();
+
+      intervalId = setInterval(() => {
+        fetchExams();
+      }, 5000);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [activeTab, selectedClassId, selectedSubjectId]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -208,12 +227,20 @@ export default function ExamsPage() {
             <ExamList exams={exams} loading={loading} activeTab={activeTab} />
           </TabsContent>
         </Tabs>
-        <ExamCreateModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onCreated={fetchExams}
-          isClassExam={activeTab === 'class'}
-        />
+        {activeTab === 'class' ? (
+          <ClassExamCreateModal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            onCreated={fetchExams}
+          />
+        ) : (
+          <ExamCreateModal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            onCreated={fetchExams}
+            isClassExam={false}
+          />
+        )}
       </CardContent>
     </Card>
   )

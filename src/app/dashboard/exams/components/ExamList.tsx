@@ -22,6 +22,9 @@ export function ExamList({ exams, loading, activeTab }: ExamListProps) {
     if (activeTab === 'class') {
       return (exam as any).classSubject || (exam as any).classId;
     }
+    if (activeTab === 'public') {
+      return exam.isPublic === true;
+    }
     return true;
   });
 

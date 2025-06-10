@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { authService } from '@/services/authService'
 import { useRouter } from 'next/navigation'
-import { User } from '@/services/types'
+import { User, Role } from '@/services/types'
 import { Button } from '@/components/ui/button'
 import { Pencil, Trash2 } from 'lucide-react'
 
@@ -20,6 +20,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+
+  const getRoleName = (role: Role): string => {
+    if (typeof role === 'string') {
+      return role
+    }
+    return role.name
+  }
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -76,7 +83,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const user = await authService.getCurrentUser()
         if (user) {
           setUser(user)
-          router.push('/dashboard')
+          // Chuyển hướng dựa trên role
+          const roleName = getRoleName(user.role)
+          console.log('User role:', roleName) // Debug log
+          
+          if (roleName === 'ROLE_ADMIN' || roleName === 'admin') {
+            router.push('/dashboard')
+          } else if (roleName === 'ROLE_TEACHER' || roleName === 'teacher') {
+            router.push('/teacher')
+          } else if (roleName === 'ROLE_USER' || roleName === 'student') {
+            router.push('/student')
+          } else {
+            console.error('Unknown role:', roleName)
+            router.push('/')
+          }
         } else {
           throw new Error('Không thể lấy thông tin người dùng')
         }

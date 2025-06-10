@@ -6,6 +6,7 @@ interface CustomAxiosInstance extends AxiosInstance {
   download: (url: string, filename: string) => Promise<void>;
 }
 
+// Instance cho các request cần xác thực
 const api = axios.create({
   baseURL: 'http://localhost:8080',
   withCredentials: true,
@@ -13,6 +14,15 @@ const api = axios.create({
     'Content-Type': 'application/json',
   }
 }) as CustomAxiosInstance;
+
+// Instance cho các request không cần xác thực
+export const publicApi = axios.create({
+  baseURL: 'http://localhost:8080',
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
 
 // Request interceptor
 api.interceptors.request.use(

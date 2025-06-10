@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { classService, Class, UpdateClassData } from '@/services/classService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,7 +53,7 @@ export default function ClassesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [classToDelete, setClassToDelete] = useState<Class | null>(null)
   const [selectedClass, setSelectedClass] = useState<Class | null>(null)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [showClassDetail, setShowClassDetail] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -63,6 +63,8 @@ export default function ClassesPage() {
   const [subjectSearchTerm, setSubjectSearchTerm] = useState('')
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([])
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([])
+  const [subjectsInClassMap, setSubjectsInClassMap] = useState<{ [classId: number]: Subject[] }>({})
+  const [subjectsLoadingMap, setSubjectsLoadingMap] = useState<{ [classId: number]: boolean }>({})
 
   useEffect(() => {
     fetchClasses()
@@ -117,9 +119,16 @@ export default function ClassesPage() {
     }
   }
 
-  const handleViewClass = (classItem: Class) => {
-    setSelectedClass(classItem)
-    setIsDetailModalOpen(true)
+  const handleClassClick = (classData: Class) => {
+    setSelectedClass(classData)
+    setShowClassDetail(true)
+  }
+
+  const handleSubjectsUpdated = (classId: number) => {
+    fetchClasses();
+    if (expandedClassId === classId && activeTab === 'subjects') {
+      fetchSubjectsInClass(classId);
+    }
   }
 
   const handleCreateSuccess = () => {
@@ -191,12 +200,50 @@ export default function ClassesPage() {
       toast.success(`Đã thêm ${selectedSubjects.length} môn học vào lớp thành công`)
       setIsAddSubjectModalOpen(false)
       setSelectedSubjects([])
-      fetchClasses() // Refresh the class list to show the new subjects
+      await fetchClasses(); // Refresh the class list to show the new subjects
+      // Refetch chi tiết lớp nếu đang mở modal chi tiết
+      if (showClassDetail && selectedClass) {
+        const updatedClass = await classService.getClassById(selectedClass.id);
+        setSelectedClass(updatedClass);
+      }
+      // Refresh phần expand nếu đang mở tab môn học
+      if (expandedClassId === selectedClass.id && activeTab === 'subjects') {
+        fetchSubjectsInClass(selectedClass.id);
+      }
     } catch (error) {
       console.error('Error adding subjects:', error)
       toast.error('Không thể thêm môn học vào lớp')
     }
   }
+
+  const fetchSubjectsInClass = async (classId: number) => {
+    setSubjectsLoadingMap(prev => ({ ...prev, [classId]: true }))
+    try {
+      const subjects = await subjectService.getSubjectsInClass(classId)
+      setSubjectsInClassMap(prev => ({ ...prev, [classId]: subjects }))
+    } catch (error) {
+      toast.error('Không thể tải danh sách môn học trong lớp')
+    } finally {
+      setSubjectsLoadingMap(prev => ({ ...prev, [classId]: false }))
+    }
+  }
+
+  const handleRemoveSubjectFromClass = async (classId: number, subjectId: number) => {
+    try {
+      await classService.removeSubjects(classId, [subjectId])
+      toast.success('Đã xóa môn học khỏi lớp thành công')
+      fetchSubjectsInClass(classId)
+    } catch (error) {
+      toast.error('Không thể xóa môn học khỏi lớp')
+    }
+  }
+
+  useEffect(() => {
+    if (expandedClassId && activeTab === 'subjects') {
+      fetchSubjectsInClass(expandedClassId)
+    }
+    // eslint-disable-next-line
+  }, [expandedClassId, activeTab])
 
   const filteredClasses = classes.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -270,7 +317,7 @@ export default function ClassesPage() {
                       <TableCell className="text-right">
                         <ClassActionsDropdown
                           classItem={classItem}
-                          onView={handleViewClass}
+                          onView={handleClassClick}
                           onEdit={handleEdit}
                           onDelete={handleDeleteClick}
                           onManage={(tab) => handleManageClick(classItem, tab)}
@@ -302,17 +349,21 @@ export default function ClassesPage() {
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  {classItem.classSubjects?.map((subject) => (
-                                    <div key={subject.id} className="flex items-center justify-between p-2 border rounded-lg">
-                                      <div>
-                                        <p className="font-medium">{subject.subject.name}</p>
-                                        <p className="text-sm text-muted-foreground">{subject.subject.description}</p>
+                                  {subjectsLoadingMap[classItem.id] ? (
+                                    <div>Đang tải...</div>
+                                  ) : (
+                                    (subjectsInClassMap[classItem.id] || []).map((subject) => (
+                                      <div key={subject.id} className="flex items-center justify-between p-2 border rounded-lg">
+                                        <div>
+                                          <p className="font-medium">{subject.name}</p>
+                                          <p className="text-sm text-muted-foreground">{subject.description}</p>
+                                        </div>
+                                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleRemoveSubjectFromClass(classItem.id, subject.id)}>
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
                                       </div>
-                                      <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
+                                    ))
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -367,16 +418,16 @@ export default function ClassesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ClassDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false)
-          setSelectedClass(null)
-        }}
-        classData={selectedClass}
-        majorsList={majorsList}
-        departmentsList={departmentsList}
-      />
+      {selectedClass && (
+        <ClassDetailModal
+          isOpen={showClassDetail}
+          onClose={() => setShowClassDetail(false)}
+          classData={selectedClass}
+          majorsList={majorsList}
+          departmentsList={departmentsList}
+          onSubjectsUpdated={handleSubjectsUpdated}
+        />
+      )}
 
       <CreateClassModal
         isOpen={isCreateModalOpen}

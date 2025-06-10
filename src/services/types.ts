@@ -1,14 +1,14 @@
-export type Role = 'ROLE_ADMIN' | 'ROLE_USER' | 'ROLE_TEACHER' | { name: string }
+export type Role = 'ROLE_ADMIN' | 'ROLE_USER' | 'ROLE_TEACHER' | 'admin' | 'teacher' | 'student' | { name: string }
 
 export interface User {
   id: number
   name: string
   email: string
-  code: number
-  phoneNumber: number
-  gender: string
-  imageUrl: string
-  role: string | { id: number }
+  code?: number
+  phoneNumber?: number
+  gender?: string
+  imageUrl?: string
+  role: Role
   password?: string
   className?: string
   department?: {

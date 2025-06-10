@@ -1,4 +1,4 @@
-import api from './axios'
+import api, { publicApi } from './axios'
 import { authService } from './authService';
 
 export interface Major {
@@ -13,17 +13,17 @@ export interface Major {
 
 class MajorService {
   async getAllMajors() {
-    const response = await api.get('/majors/all')
+    const response = await publicApi.get('/majors/all')
     return response.data
   }
 
   async getMajorsByDepartment(departmentId: number): Promise<Major[]> {
-    const response = await api.get(`/majors/department/${departmentId}`);
+    const response = await publicApi.get(`/majors/department/${departmentId}`);
     return response.data;
   }
 
   async getMajorById(id: number): Promise<Major> {
-    const response = await api.get(`/majors/find/${id}`);
+    const response = await publicApi.get(`/majors/find/${id}`);
     return response.data;
   }
 

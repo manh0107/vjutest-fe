@@ -116,10 +116,7 @@ export const questionService = {
 
   async getQuestionsByExam(examId: number): Promise<Question[]> {
     try {
-      const token = await authService.getValidToken();
-      const response = await axios.get(`${API_URL}/questions/exam/${examId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`${API_URL}/questions/exam/${examId}`);
       return response.data;
     } catch (error: any) {
       console.error('Lỗi khi lấy danh sách câu hỏi theo bài kiểm tra:', error);

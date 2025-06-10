@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Subject, subjectService } from '@/services/subjectService'
 import { SubjectDetailModal } from '@/app/dashboard/subjects/components/SubjectDetailModal'
+import Image from 'next/image'
 
 const navigation = [
   { name: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard },
@@ -49,11 +50,18 @@ export function Sidebar() {
   }, [pathname])
 
   return (
-    <div className="hidden border-r bg-gray-100/40 lg:block lg:w-60">
+    <div className="hidden bg-white lg:block lg:w-60 shadow-md fixed top-0 left-0 h-screen z-30">
       <div className="flex h-full flex-col gap-2">
-        <div className="flex h-14 items-center border-b px-4">
+        <div className="flex h-16 items-center border-b-2 border-[#e53935] px-4 bg-white justify-center">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-            <span>VJUTest</span>
+            <img 
+              src="/vju_logo.svg" 
+              alt="VJU Logo" 
+              width={36} 
+              height={36} 
+              className="rounded-full bg-white p-1 border border-[#e53935]"
+            />
+            <span className="text-2xl font-bold text-[#e53935]">VJUTest</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-2">
@@ -65,12 +73,12 @@ export function Sidebar() {
                   <div key={item.name}>
                     <div
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 cursor-pointer",
-                        isActive && "bg-gray-100 text-gray-900"
+                        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all cursor-pointer",
+                        isActive ? "bg-[#fdeaea] text-[#e53935] font-bold" : "text-gray-500 hover:text-[#e53935]"
                       )}
                       onClick={() => setShowSubjectMenu((prev) => !prev)}
                     >
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className={isActive ? "h-4 w-4 text-[#e53935]" : "h-4 w-4"} />
                       {item.name}
                     </div>
                     {showSubjectMenu && (
@@ -78,8 +86,8 @@ export function Sidebar() {
                         <Link
                           href="/dashboard/subjects"
                           className={cn(
-                            "text-left px-2 py-1 rounded hover:bg-gray-200 text-gray-700",
-                            pathname === "/dashboard/subjects" && "font-semibold bg-gray-200"
+                            "text-left px-2 py-1 rounded hover:bg-[#fdeaea] hover:text-[#e53935]",
+                            pathname === "/dashboard/subjects" && "font-bold bg-[#fdeaea] text-[#e53935]"
                           )}
                         >
                           Thông tin môn học
@@ -87,8 +95,8 @@ export function Sidebar() {
                         <Link
                           href="/dashboard/chapters"
                           className={cn(
-                            "text-left px-2 py-1 rounded hover:bg-gray-200 text-gray-700",
-                            pathname === "/dashboard/chapters" && "font-semibold bg-gray-200"
+                            "text-left px-2 py-1 rounded hover:bg-[#fdeaea] hover:text-[#e53935]",
+                            pathname === "/dashboard/chapters" && "font-bold bg-[#fdeaea] text-[#e53935]"
                           )}
                         >
                           Chương học
@@ -103,11 +111,11 @@ export function Sidebar() {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900",
-                    isActive && "bg-gray-100 text-gray-900"
+                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all",
+                    isActive ? "bg-[#fdeaea] text-[#e53935] font-bold" : "text-gray-500 hover:text-[#e53935]"
                   )}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className={isActive ? "h-4 w-4 text-[#e53935]" : "h-4 w-4"} />
                   {item.name}
                 </Link>
               )

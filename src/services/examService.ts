@@ -251,4 +251,25 @@ export const examService = {
     });
     return response.data;
   },
+
+  // Lấy kết quả làm bài hiện tại (chưa nộp) của sinh viên cho một bài kiểm tra
+  async getCurrentResult(examId: number) {
+    try {
+      const response = await api.get(`/exams/current-result`, { params: { examId } });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể lấy kết quả làm bài hiện tại');
+    }
+  },
+
+  async getTeacherExams(subjectId: number): Promise<Exam[]> {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error('Không tìm thấy thông tin người dùng');
+      const response = await api.get(`/exams/teacher/${user.id}?subjectId=${subjectId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Không thể lấy danh sách bài kiểm tra của giảng viên');
+    }
+  },
 } 

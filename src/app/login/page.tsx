@@ -15,20 +15,6 @@ export default function LoginPage() {
   const { user, login } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'admin') {
-        router.push('/dashboard')
-      } else if (user.role === 'teacher') {
-        router.push('/teacher')
-      } else if (user.role === 'student') {
-        router.push('/student')
-      } else {
-        router.push('/')
-      }
-    }
-  }, [user, router])
-
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {}
     

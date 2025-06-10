@@ -1,4 +1,4 @@
-import api from './axios'
+import api, { publicApi } from './axios'
 import { authService } from './authService';
 
 export interface Department {
@@ -11,12 +11,12 @@ export interface Department {
 
 class DepartmentService {
   async getAllDepartments() {
-    const response = await api.get('/departments/all')
+    const response = await publicApi.get('/departments/all')
     return response.data
   }
 
   async getDepartmentById(id: number): Promise<Department> {
-    const response = await api.get(`/departments/find/${id}`);
+    const response = await publicApi.get(`/departments/find/${id}`);
     return response.data;
   }
 

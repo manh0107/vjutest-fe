@@ -28,6 +28,7 @@ export default function CompleteExamPage({ params }: { params: { id: string } })
   const [duration, setDuration] = useState(30);
   const [completing, setCompleting] = useState(false);
   const [passPercent, setPassPercent] = useState(60);
+  const [startTime, setStartTime] = useState<string>('');
   const [showRevertDialog, setShowRevertDialog] = useState(false);
   const QUESTIONS_PER_PAGE = 5;
   const router = useRouter();
@@ -106,15 +107,23 @@ export default function CompleteExamPage({ params }: { params: { id: string } })
         endAt = undefined;
       } else {
         // Bài kiểm tra không public: cần set thời gian cụ thể
-        const now = new Date();
-        startAt = now.toISOString();
-        endAt = new Date(now.getTime() + duration * 60000).toISOString(); // duration là phút, chuyển sang mili giây
+        if (!startTime) {
+          setError('Vui lòng nhập thời gian bắt đầu');
+          setCompleting(false);
+          return;
+        }
+        startAt = startTime;
+        endAt = new Date(new Date(startTime).getTime() + duration * 60000).toISOString();
       }
       
       await examService.updateExamStatus(examId, 'PUBLISHED', startAt, endAt, passPercent, duration);
       toast.success('Bài kiểm tra đã được hoàn thành!');
       setShowCompleteModal(false);
-      router.push('/dashboard/exams');
+      
+      // Thêm delay nhỏ để đảm bảo backend đã cập nhật xong
+      setTimeout(() => {
+        router.push('/dashboard/exams');
+      }, 500);
     } catch (error: any) {
       console.error('Error completing exam:', error);
       if (error.response?.status === 403) {
@@ -171,6 +180,17 @@ export default function CompleteExamPage({ params }: { params: { id: string } })
   const handleQuestionUpdated = () => {
     // Fetch questions again to update the UI
     fetchQuestions();
+    // Refresh answers for all expanded questions
+    Object.keys(expandedRows).forEach(async (questionId) => {
+      if (expandedRows[questionId]) {
+        try {
+          const data = await answerService.getAnswersByQuestion(Number(questionId));
+          setAnswers(prev => ({ ...prev, [questionId]: data }));
+        } catch (e) {
+          console.error('Error refreshing answers:', e);
+        }
+      }
+    });
   };
 
   const handleDeleteQuestion = (question: any) => {
@@ -194,22 +214,7 @@ export default function CompleteExamPage({ params }: { params: { id: string } })
 
   const handleDuplicateQuestion = async (question: any) => {
     try {
-      const duplicatedQuestion = await questionService.duplicateQuestion(examId, question.id);
-      
-      // Cập nhật tên câu hỏi mới để bỏ chữ "Bản sao"
-      if (duplicatedQuestion.name.includes('(Bản sao)')) {
-        const updatedName = duplicatedQuestion.name.replace('(Bản sao)', '').trim();
-        await questionService.updateQuestionInExam(
-          duplicatedQuestion.id,
-          examId,
-          {
-            name: updatedName,
-            difficulty: duplicatedQuestion.difficulty,
-            examQuestions: duplicatedQuestion.examQuestions
-          }
-        );
-      }
-      
+      await questionService.duplicateQuestion(examId, question.id);
       toast.success('Nhân bản câu hỏi thành công!');
       fetchQuestions();
     } catch (error) {
@@ -276,6 +281,7 @@ export default function CompleteExamPage({ params }: { params: { id: string } })
           onCreated={fetchQuestions}
           examId={examId}
           chapters={chapters}
+          examIsPublic={exam?.isPublic}
         />
       )}
       {/* Danh sách câu hỏi */}
@@ -398,6 +404,19 @@ export default function CompleteExamPage({ params }: { params: { id: string } })
             <DialogTitle className="text-xl">Hoàn thành bài kiểm tra</DialogTitle>
             <p className="text-gray-500 text-sm mt-1">Nhập thông tin để xuất bản bài kiểm tra.</p>
           </DialogHeader>
+          {!exam?.isPublic && (
+            <div className="mb-4">
+              <label className="block font-medium mb-1">Thời gian bắt đầu</label>
+              <Input
+                type="datetime-local"
+                value={startTime}
+                onChange={e => setStartTime(e.target.value)}
+                min={new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)}
+                required
+              />
+              <p className="text-sm text-gray-500 mt-1">Thời gian bắt đầu phải cách thời gian hiện tại ít nhất 30 phút</p>
+            </div>
+          )}
           <div className="mb-4">
             <label className="block font-medium mb-1">Thời gian làm bài (phút)</label>
             <Input
@@ -430,7 +449,7 @@ export default function CompleteExamPage({ params }: { params: { id: string } })
             }} disabled={completing}>
               Hủy
             </Button>
-            <Button onClick={handleCompleteExam} disabled={completing || duration < 1 || passPercent < 1 || passPercent > 100} className="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg">
+            <Button onClick={handleCompleteExam} disabled={completing || duration < 1 || passPercent < 1 || passPercent > 100 || (!exam?.isPublic && !startTime)} className="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg">
               {completing ? 'Đang hoàn thành...' : 'Xác nhận'}
             </Button>
           </DialogFooter>

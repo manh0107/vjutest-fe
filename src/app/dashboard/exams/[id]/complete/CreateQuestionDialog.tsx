@@ -24,6 +24,7 @@ interface CreateQuestionDialogProps {
   onCreated: () => void;
   examId: number;
   chapters: { id: number; name: string }[];
+  examIsPublic?: boolean;
 }
 
 interface QuestionFormData {
@@ -33,7 +34,7 @@ interface QuestionFormData {
   image?: File;
 }
 
-export default function CreateQuestionDialog({ open, onOpenChange, onCreated, examId, chapters }: CreateQuestionDialogProps) {
+export default function CreateQuestionDialog({ open, onOpenChange, onCreated, examId, chapters, examIsPublic }: CreateQuestionDialogProps) {
   const [content, setContent] = useState('');
   const [score, setScore] = useState(1);
   const [difficulty, setDifficulty] = useState('EASY');
@@ -69,6 +70,14 @@ export default function CreateQuestionDialog({ open, onOpenChange, onCreated, ex
       setChapterId(null);
     }
   }, [chapters, open]);
+
+  useEffect(() => {
+    if (examIsPublic) {
+      setIsPublic(true);
+    } else {
+      setIsPublic(false); // Reset về false khi mở dialog mới
+    }
+  }, [examIsPublic, open]);
 
   const handleAddAnswer = () => {
     if (answers.length < 4) setAnswers([...answers, { content: '', isCorrect: false, image: null }]);
@@ -421,6 +430,18 @@ export default function CreateQuestionDialog({ open, onOpenChange, onCreated, ex
                     Thêm đáp án
                   </Button>
                 </div>
+
+                {!examIsPublic && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <Checkbox 
+                      id="isPublic" 
+                      checked={isPublic} 
+                      onCheckedChange={v => setIsPublic(Boolean(v))} 
+                      disabled={examIsPublic} // Disable nếu bài kiểm tra là public
+                    />
+                    <Label htmlFor="isPublic">Đánh dấu câu hỏi này là public (sẽ được công khai sau khi bài kiểm tra kết thúc)</Label>
+                  </div>
+                )}
               </div>
             </form>
           </div>

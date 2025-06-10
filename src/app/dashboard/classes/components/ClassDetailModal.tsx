@@ -25,9 +25,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { classService } from '@/services/classService'
 import { toast } from 'sonner'
+import { subjectService, Subject } from '@/services/subjectService'
 
 interface ClassDetailModalProps {
   isOpen: boolean
@@ -35,9 +36,10 @@ interface ClassDetailModalProps {
   classData: Class | null
   majorsList: { id: number; name: string }[]
   departmentsList: { id: number; name: string }[]
+  onSubjectsUpdated?: (classId: number) => void
 }
 
-export function ClassDetailModal({ isOpen, onClose, classData, majorsList = [], departmentsList = [] }: ClassDetailModalProps) {
+export function ClassDetailModal({ isOpen, onClose, classData, majorsList = [], departmentsList = [], onSubjectsUpdated }: ClassDetailModalProps) {
   if (!classData) return null
 
   console.log('Class Data:', classData)
@@ -72,19 +74,114 @@ export function ClassDetailModal({ isOpen, onClose, classData, majorsList = [], 
     return Math.ceil(totalItems / itemsPerPage)
   }
 
-  const handleAddSubject = async () => {
+  const [subjectsInClass, setSubjectsInClass] = useState<Subject[]>([])
+  const [subjectsLoading, setSubjectsLoading] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && classData?.id) {
+      fetchSubjectsInClass(classData.id)
+    }
+    // eslint-disable-next-line
+  }, [isOpen, classData?.id])
+
+  const fetchSubjectsInClass = async (classId: number) => {
+    setSubjectsLoading(true)
     try {
-      // TODO: Show subject selection modal
-      toast.success('Thêm môn học thành công')
+      const subjects = await subjectService.getSubjectsInClass(classId)
+      setSubjectsInClass(subjects)
     } catch (error) {
-      toast.error('Không thể thêm môn học')
+      toast.error('Không thể tải danh sách môn học trong lớp')
+    } finally {
+      setSubjectsLoading(false)
     }
   }
+
+  const [selectedSubjects, setSelectedSubjects] = useState<number[]>([])
+  const [showAddSubjectModal, setShowAddSubjectModal] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const handleAddSubjects = async () => {
+    if (!selectedSubjects.length) {
+      toast.error('Vui lòng chọn ít nhất một môn học');
+      return;
+    }
+
+    if (loading) return;
+
+    try {
+      setLoading(true);
+      
+      // Lọc ra những môn học chưa tồn tại trong lớp
+      const existingSubjects = subjectsInClass.map(s => s.id);
+      const newSubjects = selectedSubjects.filter(id => !existingSubjects.includes(id));
+
+      if (newSubjects.length === 0) {
+        toast.error('Tất cả môn học đã được chọn đã tồn tại trong lớp');
+        setSelectedSubjects([]);
+        setShowAddSubjectModal(false);
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        newSubjects.map(subjectId =>
+          classService.addSubjectToClass(classData.id, subjectId)
+            .catch((error) => error) // Bắt lỗi để xử lý từng môn
+        )
+      );
+
+      let scopeErrorCount = 0;
+      let existErrorCount = 0;
+      let otherErrorCount = 0;
+
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          const reason = result.reason;
+          const message = reason?.response?.data?.message || reason?.message || '';
+          if (message.includes('không thuộc cùng khoa') || message.includes('không thuộc cùng ngành')) {
+            scopeErrorCount++;
+          } else if (message.includes('đã tồn tại trong lớp')) {
+            existErrorCount++;
+          } else {
+            otherErrorCount++;
+          }
+        }
+      });
+
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+
+      if (successCount > 0) {
+        toast.success(`Đã thêm thành công ${successCount} môn học`);
+        await fetchSubjectsInClass(classData.id);
+        if (classData) {
+          classData.classSubjects = [...(classData.classSubjects || [])];
+        }
+        onSubjectsUpdated?.(classData.id);
+      }
+      if (scopeErrorCount > 0) {
+        toast.error(`${scopeErrorCount} môn học không cùng phạm vi với lớp học, không thể thêm.`);
+      }
+      if (existErrorCount > 0) {
+        toast.error(`${existErrorCount} môn học đã tồn tại trong lớp.`);
+      }
+      if (otherErrorCount > 0) {
+        toast.error(`Có ${otherErrorCount} lỗi khác khi thêm môn học.`);
+      }
+
+      setSelectedSubjects([]);
+      setShowAddSubjectModal(false);
+    } catch (error) {
+      console.error('Error adding subjects:', error);
+      toast.error('Có lỗi xảy ra khi thêm môn học');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRemoveSubject = async (subjectId: number) => {
     try {
       await classService.removeSubjects(classData.id, [subjectId])
       toast.success('Xóa môn học thành công')
+      await fetchSubjectsInClass(classData.id)
     } catch (error) {
       toast.error('Không thể xóa môn học')
     }
@@ -300,25 +397,29 @@ export function ClassDetailModal({ isOpen, onClose, classData, majorsList = [], 
               <TabsContent value="subjects" className="mt-4">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Danh sách môn học</h3>
-                  <Button variant="outline" size="sm" onClick={handleAddSubject}>
+                  <Button variant="outline" size="sm" onClick={() => setShowAddSubjectModal(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Thêm môn học
                   </Button>
                 </div>
                 <div className="space-y-4">
-                  {getPaginatedItems(classData.classSubjects, currentPage).map((subject) => (
-                    <Card key={subject.id}>
-                      <CardContent className="p-4 flex justify-between items-center">
-                        <div>
-                          <h4 className="font-medium">{subject.subject.name}</h4>
-                          <p className="text-sm text-muted-foreground">{subject.subject.description}</p>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveSubject(subject.id)}>
-                          <Minus className="w-4 h-4" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {subjectsLoading ? (
+                    <div>Đang tải...</div>
+                  ) : (
+                    getPaginatedItems(subjectsInClass, currentPage).map((subject) => (
+                      <Card key={subject.id}>
+                        <CardContent className="p-4 flex justify-between items-center">
+                          <div>
+                            <h4 className="font-medium">{subject.name}</h4>
+                            <p className="text-sm text-muted-foreground">{subject.description}</p>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => handleRemoveSubject(subject.id)}>
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
                 </div>
                 <Pagination className="mt-4">
                   {/* ... existing pagination ... */}
