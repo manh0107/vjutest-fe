@@ -1,36 +1,152 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VJUTest Frontend
 
-## Getting Started
+A modern web application built with Next.js, TypeScript, and Tailwind CSS for managing and conducting tests at VJU (Vietnam Japan University).
 
-First, run the development server:
+## 🚀 Features
 
+- Modern UI with Tailwind CSS and Radix UI components
+- Type-safe development with TypeScript
+- Responsive design for all devices
+- Dark/Light mode support
+- Role-based access control (Admin, Teacher, Student)
+- Real-time updates and notifications
+- File upload and management
+- Interactive dashboards and analytics
+
+## 📁 Project Structure
+
+```
+vjutest-fe/
+├── src/
+│   ├── app/                 # Next.js app directory (pages and layouts)
+│   ├── components/          # Reusable UI components
+│   ├── contexts/           # React context providers
+│   ├── hooks/              # Custom React hooks
+│   ├── lib/                # Utility functions and configurations
+│   ├── services/           # API service functions
+│   └── types/              # TypeScript type definitions
+├── public/                 # Static assets
+└── ...config files
+```
+
+### Key Directories
+
+- `src/app/`: Contains all the pages and layouts of the application using Next.js 14 App Router
+- `src/components/`: Reusable UI components built with Radix UI and styled with Tailwind CSS
+- `src/services/`: API integration layer for communicating with the backend
+- `src/hooks/`: Custom React hooks for shared logic
+- `src/contexts/`: React context providers for global state management
+- `src/lib/`: Utility functions, constants, and configurations
+- `src/types/`: TypeScript type definitions and interfaces
+
+## 🛠️ Technologies
+
+- [Next.js 14](https://nextjs.org/) - React framework
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [Radix UI](https://www.radix-ui.com/) - Unstyled, accessible components
+- [Axios](https://axios-http.com/) - HTTP client
+- [React Icons](https://react-icons.github.io/react-icons/) - Icon library
+- [Recharts](https://recharts.org/) - Charting library
+- [Sonner](https://sonner.emilkowal.ski/) - Toast notifications
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18.x or later
+- npm or yarn package manager
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd vjutest-fe
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Create a `.env.local` file in the root directory and add your environment variables:
+```env
+NEXT_PUBLIC_API_URL=your_api_url_here
+```
+
+### Development
+
+Run the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Building for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+# or
+yarn build
+```
 
-## Learn More
+### Running Production Build
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run start
+# or
+yarn start
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📝 Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
 
-## Deploy on Vercel
+## 🎨 UI Components
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The project uses a combination of:
+- Radix UI for unstyled, accessible components
+- Tailwind CSS for styling
+- Custom components for specific functionality
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔒 Authentication
+
+The application implements JWT-based authentication with role-based access control:
+- Admin: Full system access
+- Teacher: Class and test management
+- Student: Test taking and viewing results
+
+## 📱 Responsive Design
+
+The application is fully responsive and works on:
+- Desktop computers
+- Tablets
+- Mobile devices
+
+## 🎯 Code Quality
+
+- TypeScript for type safety
+- ESLint for code linting
+- Prettier for code formatting
+- Tailwind CSS for consistent styling
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
